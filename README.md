@@ -69,31 +69,29 @@ first applies `p` to the argument and then applies `a` to the result:
 
 `mm: a . p`.
 
-Notes on iteration domain inference
+Open Design Questions
 ---
 
-There is a 1-D iteration domain for each unique atomic (single-char) index. For
-example, `ik*kj~ijk` has three domains, one for each of `i`, `j`, and `k`. Each
-compound (multi-char) index must index a scalar in the input Array. Therefore,
-both input Arrays in this expression are must be 2-D and the output Array must
-be 3-D. The numerical values of the iteration domains are determined by
-matching the atomic index with the size of the corresponding dimension in the
-Array. For example, the `i` iteration domain goes from 0 to in0.shape[0], j
-from 0 to in1.shape[1], and k from 0 to in0.shape[1] == in1.shape[0].  Notice
-how the expression enforces the shape correspondance between `in0` and `in1`.
-Any atomic indices in the output not informed by an input index go from 0 to 1
-(that is, additional atomic indices in the output index can "unsqueeze" the
-output). This determines the domains for all atomic indices and from these, the
-shape of the output is determined. For example, in the above example, the
-output is an Array of shape `[in0.shape[0], in1.shape[1], in0.shape[1]]`.
-Whereas atomic indices present in the output but not the input signify
-unsqueeze, atomic indices present in any input but not the output signify a
-reduction (or a squeeze). This is handled accordingly: the output Array is
-initialized with the identity of the given operation, e.g., 0 for
-`Add`/`Accum`, 1 for `Mul`/`Product`. The an N-D iteration domain is
-constructed every iteration of which computes some scalar quantity and updates
-the corresponding element of the output.
+- What does a repeated index in a single argument array indicate?
+  - It seems the most natural interpretation of this based on the description
+    of the algorithm domain above is that it results in a single domain the
+    indexes the diagonal.
+    - If this is the case, how could you enforce inter-array size constraints,
+      e.g., square matrix?
+- What does a repeated index in the resulting array indicate?
+  - Following the logic above, the natural interpretation seems to be that it
+    would index the diagonal. For example, `i~ii` would return a 2-D array
+    where the diagonal holds the original 1-D input. Then what would the
+    off-diagonal elements be? 0 seems obvious, but is there a reason this
+    should be true?
+- What other combinators make sense to add?
+- How to tell with things like ReLU? Typically this is implemented as
+  `max(x,0)`, but we don't have `0`. We don't have `max` either, but that's a
+  smaller decision than adding numbers. One idea is introducing some small
+  number of built-in functions like 0 which returns a 0s array of the
+  appropriate shape (what if the shape cannot be inferred?).
+- How do we handle multiple uses of the same input? For example, normalize:
+  `x/x.sum()`. Maybe a "repeater" combinator that repeats its input?
+- In general how do we handle expressions of multiple inputs? Haskell has
+  currying. Maybe that could be useful here?
 
-Questions:
-  - Can repeat indices in the inputs? What about the outputs?
-    - I _think_ inputs is fine, outputs not, but have to think more.
