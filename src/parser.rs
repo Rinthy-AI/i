@@ -4,29 +4,29 @@ use std::collections::HashMap;
 use crate::tokenizer::{Token, Tokenizer};
 
 #[derive(Debug)]
-pub enum AST {
-    Program(Program),
-    Library(Library),
+pub enum AST<'a> {
+    Program(Program<'a>),
+    Library(Library<'a>),
 }
 
 #[derive(Debug)]
-pub struct Program(Vec<NamedExpr>, ExprRef);
+pub struct Program<'a>(Vec<NamedExpr<'a>>, &'a Expr<'a>);
 
 #[derive(Debug)]
-pub struct Library(Vec<NamedExpr>);
+pub struct Library<'a>(Vec<NamedExpr<'a>>);
 
 #[derive(Debug)]
-pub struct NamedExpr(Symbol, ExprRef);
+pub struct NamedExpr<'a>(Symbol, &'a Expr<'a>);
 
 #[derive(Clone, Debug)]
-enum Expr {
+enum Expr<'a> {
     Dependency(Dependency),
-    Combinator(Combinator),
+    Combinator(Combinator<'a>),
 }
 
 /// Holds all Exprs
 #[derive(Debug)]
-pub struct ExprBank(Vec<Expr>);
+pub struct ExprBank<'a>(Vec<Expr<'a>>);
 
 /// An index into the ExprBank
 #[derive(Clone, Copy, Debug)]
@@ -58,8 +58,8 @@ pub enum UnaryOp {
 pub struct NoOp(Symbol);
 
 #[derive(Clone, Debug)]
-pub enum Combinator {
-    Compose(ExprRef, ExprRef),
+pub enum Combinator<'a> {
+    Compose(&'a Expr<'a>, &'a Expr<'a>),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -87,25 +87,25 @@ impl fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 #[derive(Debug)]
-pub struct SymbolTable(HashMap<Symbol, ExprRef>);
+pub struct SymbolTable<'a>(HashMap<Symbol, &'a Expr<'a>>);
 
-impl SymbolTable {
+impl<'a> SymbolTable<'a> {
     fn new() -> Self {
         Self(HashMap::new())
     }
 
-    fn add(&mut self, symbol: Symbol, expr: ExprRef) {
+    fn add(&mut self, symbol: Symbol, expr: &'a Expr<'a>) {
         self.0.insert(symbol, expr);
     }
 
-    fn get(&self, symbol: &Symbol) -> Option<ExprRef> {
+    fn get(&self, symbol: &Symbol) -> Option<&'a Expr<'a>> {
         self.0.get(symbol).cloned()
     }
 }
 
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
-    pub symbol_table: SymbolTable, // TODO: remove pub
+    pub symbol_table: SymbolTable<'a>, // TODO: remove pub
 }
 
 impl<'a> Parser<'a> {
@@ -128,7 +128,8 @@ impl<'a> Parser<'a> {
             _ => {
                 let expr = self.parse_expr()?;
                 expr_bank.0.push(expr);
-                Ok((AST::Program(Program(named_exprs, ExprRef(expr_bank.0.len()-1))), expr_bank))
+                let expr_ref = expr_bank.0.last().unwrap(); // won't fail since we just pushed
+                Ok((AST::Program(Program(named_exprs, expr_ref)), expr_bank))
             }
         }
     }
@@ -139,7 +140,7 @@ impl<'a> Parser<'a> {
             Token::Colon => {
                 let expr = self.parse_expr()?;
                 expr_bank.0.push(expr);
-                let expr_ref = ExprRef(expr_bank.0.len() - 1);
+                let expr_ref = expr_bank.0.last().unwrap(); // won't fail since we just pushed
                 self.symbol_table.add(ident.clone(), expr_ref);
                 Ok(NamedExpr(ident, expr_ref))
             }
@@ -149,7 +150,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expr(&mut self) -> Result<Expr, ParseError> {
+    fn parse_expr(&mut self) -> Result<Expr<'a>, ParseError> {
         match self.tokenizer.peek() {
             [Token::Operator(_), _] | [_, Token::Operator(_)] => {
                 Ok(Expr::Dependency(self.parse_dependency()?))
