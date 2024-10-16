@@ -1,3 +1,4 @@
+mod ir;
 mod parser;
 mod tokenizer;
 use crate::parser::Parser;

@@ -1,69 +1,11 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use crate::ir::{
+    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, Library, NamedExpr, NoOp, Program,
+    ScalarOp, Symbol, UnaryOp, AST,
+};
 use crate::tokenizer::{Token, Tokenizer};
-
-#[derive(Debug)]
-pub enum AST {
-    Program(Program),
-    Library(Library),
-}
-
-#[derive(Debug)]
-pub struct Program(Vec<NamedExpr>, ExprRef);
-
-#[derive(Debug)]
-pub struct Library(Vec<NamedExpr>);
-
-#[derive(Debug)]
-pub struct NamedExpr(Symbol, ExprRef);
-
-#[derive(Clone, Debug)]
-enum Expr {
-    Dependency(Dependency),
-    Combinator(Combinator),
-}
-
-/// Holds all Exprs
-#[derive(Debug)]
-pub struct ExprBank(Vec<Expr>);
-
-/// An index into the ExprBank
-#[derive(Clone, Copy, Debug)]
-pub struct ExprRef(usize);
-
-#[derive(Clone, Debug)]
-struct Dependency(ScalarOp, Symbol);
-
-#[derive(Clone, Debug)]
-pub enum ScalarOp {
-    BinaryOp(BinaryOp),
-    UnaryOp(UnaryOp),
-    NoOp(NoOp),
-}
-
-#[derive(Clone, Debug)]
-pub enum BinaryOp {
-    Mul(Symbol, Symbol),
-    Add(Symbol, Symbol),
-}
-
-#[derive(Clone, Debug)]
-pub enum UnaryOp {
-    Prod(Symbol),
-    Accum(Symbol),
-}
-
-#[derive(Clone, Debug)]
-pub struct NoOp(Symbol);
-
-#[derive(Clone, Debug)]
-pub enum Combinator {
-    Compose(ExprRef, ExprRef),
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Symbol(String);
 
 #[derive(Debug)]
 pub enum ParseError {
