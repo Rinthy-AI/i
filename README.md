@@ -2,8 +2,26 @@ i is a language for writing pure array-valued expressions
 
 The name is subject to change.
 
-Dependency Expressions
----
+i can be embedded into Rust. Here is an example showing a matrix multiply:
+
+``` rust
+// from example/src/main.rs
+
+let m = i!(m: ik*kj~ijk); // the multiplies of a matmul
+let a = i!(a: +ijk~ij); // the accumulation of a matmul
+
+let result = a(m(x, y)); // for some matrices `x` and `y`
+```
+
+# Status
+
+- [x] parser
+- [x] simple Rust backend that generates everything but combinators
+- [x] proc macro `i!()` for writing/running i code directly in Rust
+
+# Language Design
+
+### Dependency Expressions
 
 The fundamental expression type in i is the dependency expression.
 
@@ -59,8 +77,7 @@ purpose of reshape/views on the inputs. An example is transpose:
 
 `t: ij~ji`.
 
-Combinator Expressions
----
+### Combinator Expressions
 
 Aside from dependency expressions, i supports expression combinators. Currently
 the only combinator implemented is compose, which works according to the
@@ -69,8 +86,7 @@ first applies `p` to the argument and then applies `a` to the result:
 
 `mm: a . p`.
 
-Open Design Questions
----
+### Open Design Questions
 
 - What does a repeated index in a single argument array indicate?
   - It seems the most natural interpretation of this based on the description
