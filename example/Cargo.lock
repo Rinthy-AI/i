@@ -3,20 +3,12 @@
 version = 3
 
 [[package]]
-name = "compiler"
-version = "0.1.0"
-
-[[package]]
 name = "example"
 version = "0.1.0"
 dependencies = [
- "compiler",
  "macros",
 ]
 
 [[package]]
 name = "macros"
 version = "0.1.0"
-dependencies = [
- "compiler",
-]
