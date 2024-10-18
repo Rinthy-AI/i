@@ -1,3 +1,5 @@
+use std::ops::{Index, IndexMut};
+
 use crate::backend::Backend;
 
 pub struct RustBackend;
@@ -39,5 +41,54 @@ impl Backend for RustBackend {
     }
     fn get_assert_eq_string(&self, left: String, right: String) -> String {
         format!("assert_eq!({left}, {right});")
+    }
+}
+
+#[derive(Debug)]
+pub struct Array {
+    pub data: Vec<f32>,
+    pub shape: Vec<usize>,
+}
+
+impl Array {
+    pub fn new(shape: Vec<usize>, initial_value: f32) -> Self {
+        let size = shape.iter().product();
+        Array {
+            data: vec![initial_value; size],
+            shape,
+        }
+    }
+
+    /// affine transform to compute 1-D index from N-D indices
+    fn affine_transform(&self, nd_indices: &[usize]) -> Option<usize> {
+        if nd_indices.len() != self.shape.len() {
+            return None;
+        }
+
+        let mut idx = 0;
+        for (i, &dim_index) in nd_indices.iter().enumerate() {
+            if dim_index >= self.shape[i] {
+                return None;
+            }
+            idx = idx * self.shape[i] + dim_index;
+        }
+
+        Some(idx)
+    }
+}
+
+impl Index<&[usize]> for Array {
+    type Output = f32;
+
+    fn index(&self, indices: &[usize]) -> &Self::Output {
+        let idx = self.affine_transform(indices).expect("Invalid index");
+        &self.data[idx]
+    }
+}
+
+impl IndexMut<&[usize]> for Array {
+    fn index_mut(&mut self, indices: &[usize]) -> &mut Self::Output {
+        let idx = self.affine_transform(indices).expect("Invalid index");
+        &mut self.data[idx]
     }
 }
