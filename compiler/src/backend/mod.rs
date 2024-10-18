@@ -1,3 +1,5 @@
+pub mod rust;
+
 use std::collections::{HashMap, HashSet};
 
 use crate::ir::{

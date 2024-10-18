@@ -1,6 +1,6 @@
 use compiler::parser::Parser;
 use compiler::backend::Generator;
-use compiler::rust_backend::RustBackend;
+use compiler::backend::rust::RustBackend;
 
 use proc_macro::TokenStream;
 

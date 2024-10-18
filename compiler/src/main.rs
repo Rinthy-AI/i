@@ -1,9 +1,9 @@
 mod backend;
 mod ir;
 mod parser;
-mod rust_backend;
 mod tokenizer;
 use crate::backend::Generator;
+use crate::backend::rust::RustBackend;
 use crate::parser::Parser;
 
 // cargo fmt
