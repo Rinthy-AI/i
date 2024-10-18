@@ -8,7 +8,7 @@ use crate::ir::{
 };
 
 pub trait Backend {
-    fn gen_kernel(&self, id: String, args: Vec<String>, return_: String, body: String) -> String;
+    fn gen_kernel(&self, id: Option<String>, args: Vec<String>, return_: String, body: String) -> String;
     fn get_arg_declaration_string(&self, id: String) -> String;
     fn get_return_type_string(&self) -> String;
     fn get_var_declaration_string(&self, id: String, value: String) -> String;
@@ -67,7 +67,7 @@ impl<B: Backend> Generator<B> {
         };
         Ok(self
             .backend
-            .gen_kernel(id, arg_declaration_strings, return_, body))
+            .gen_kernel(Some(id), arg_declaration_strings, return_, body))
     }
 
     fn get_args(&self, expr: &Expr) -> Vec<String> {
