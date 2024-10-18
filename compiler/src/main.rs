@@ -23,7 +23,7 @@ impl backend::Backend for RustBackend {
             .map(|arg| format!("{}", arg))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("fn {}({arg_list}) -> {return_} {{ {body} }}", id)
+        format!("|{arg_list}| -> {return_} {{ {body} }}")
     }
     fn get_arg_declaration_string(&self, id: String) -> String {
         format!("{}: Array", id)
@@ -65,12 +65,13 @@ fn main() -> Result<(), String> {
 
     //println!("{:#?}", Parser::new(input)?.parse());
 
-    let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
+    //let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
 
-    let backend = RustBackend {};
-    let generator: backend::Generator<RustBackend> = Generator::new(backend);
-    let code = generator.gen(ast, expr_bank).unwrap();
-    println!("{}", format_rust_code(code));
+    //let backend = RustBackend {};
+    //let generator: backend::Generator<RustBackend> = Generator::new(backend);
+    //let code = generator.gen(ast, expr_bank).unwrap();
+    ////println!("{}", format_rust_code(code));
+    //println!("{}", code);
 
     Ok(())
 }
