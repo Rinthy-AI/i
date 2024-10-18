@@ -34,27 +34,28 @@ impl<B: Backend> Generator<B> {
 
     pub fn gen(&self, ast: AST, expr_bank: ExprBank) -> Result<String, String> {
         match ast {
-            AST::Program(program) => Ok(self.gen_program(program, expr_bank)?),
-            AST::Library(library) => Ok(self.gen_library(library, expr_bank)?),
+            AST::Program(_) => Ok(self.gen_expr_bank(expr_bank, true)?),
+            AST::Library(_) => Ok(self.gen_expr_bank(expr_bank, false)?),
         }
     }
 
-    pub fn gen_program(&self, program: Program, expr_bank: ExprBank) -> Result<String, String> {
-        Ok("program".to_string())
-    }
-
-    pub fn gen_library(&self, library: Library, expr_bank: ExprBank) -> Result<String, String> {
+    pub fn gen_expr_bank(&self, expr_bank: ExprBank, program: bool) -> Result<String, String> {
+        // index of the anonymous index. will be outside iteration if it does not exist.
+        let anon_ind = expr_bank.0.len() - (program as usize);
         Ok(expr_bank
             .0
             .iter()
             .enumerate()
-            .map(|(ind, expr)| self.gen_expr(expr, ind))
+            .map(|(ind, expr)| self.gen_expr(expr, if ind == anon_ind { None } else { Some(ind) }))
             .collect::<Result<Vec<_>, _>>()?
             .join("\n\n"))
     }
 
-    pub fn gen_expr(&self, expr: &Expr, ind: usize) -> Result<String, String> {
-        let id = format!("f{}", ind);
+    pub fn gen_expr(&self, expr: &Expr, ind: Option<usize>) -> Result<String, String> {
+        let id = match ind {
+            Some(ind) => Some(format!("f{}", ind)),
+            None => None,
+        };
         let args = self.get_args(expr);
         let arg_declaration_strings = args
             .iter()
@@ -67,7 +68,7 @@ impl<B: Backend> Generator<B> {
         };
         Ok(self
             .backend
-            .gen_kernel(Some(id), arg_declaration_strings, return_, body))
+            .gen_kernel(id, arg_declaration_strings, return_, body))
     }
 
     fn get_args(&self, expr: &Expr) -> Vec<String> {
