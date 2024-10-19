@@ -3,8 +3,7 @@ pub mod rust;
 use std::collections::{HashMap, HashSet};
 
 use crate::ir::{
-    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, Library, NamedExpr, NoOp, Program,
-    ScalarOp, Symbol, UnaryOp, AST,
+    BinaryOp, Combinator, Dependency, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 
 pub trait Backend {
@@ -207,7 +206,7 @@ impl<B: Backend> Generator<B> {
         );
 
         let mut loop_string = op_string;
-        for (i, &c) in (0..indices.len()).rev().zip(indices.iter()) {
+        for c in indices {
             loop_string = self.backend.make_loop_string(c, loop_string);
         }
 
