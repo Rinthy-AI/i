@@ -175,8 +175,6 @@ impl<B: Backend> Generator<B> {
         let out_array_declaration_string =
             B::get_out_array_declaration_string(out_dim_string, scalar_op.get_identity_string());
 
-        let partial_op_string = "unimplemented".to_string();
-
         let (input_index_vecs, output_index_vec, op_char) = dependency.get_index_vecs_and_op_char();
 
         let indexed_input_array_strings = input_index_vecs
