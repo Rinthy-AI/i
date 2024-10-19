@@ -58,7 +58,7 @@ impl<B: Backend> Generator<B> {
             Some(ind) => Some(format!("f{}", ind)),
             None => None,
         };
-        let args = self.get_args(expr);
+        let args = self.get_args(expr, 0);
         let arg_declaration_strings = args
             .iter()
             .map(|arg| self.backend.get_arg_declaration_string(arg.to_string()))
@@ -73,15 +73,20 @@ impl<B: Backend> Generator<B> {
             .gen_kernel(id, arg_declaration_strings, return_, body))
     }
 
-    fn get_args(&self, expr: &Expr) -> Vec<String> {
+    fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
         match expr {
             Expr::Dependency(dependency) => match dependency {
-                Dependency(ScalarOp::BinaryOp(_), _) => {
-                    vec!["in0".to_string(), "in1".to_string()]
-                }
-                _ => vec!["in0".to_string()],
+                Dependency(ScalarOp::BinaryOp(_), _) => vec![
+                    format!("in{arg_ct}"), format!("in{}", arg_ct + 1)
+                ],
+                _ => vec![format!("in{arg_ct}")],
             },
-            Expr::Combinator(combinator) => unimplemented!(),
+            Expr::Combinator(Combinator::Chain(first, second)) => {
+                let mut args = self.get_args(&self.expr_bank.0[first.0], 0);
+                let second_args = self.get_args(&self.expr_bank.0[second.0], args.len());
+                args.extend(second_args[1..].to_vec());
+                args
+            }
         }
     }
 
