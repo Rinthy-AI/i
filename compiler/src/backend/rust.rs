@@ -46,6 +46,9 @@ impl Backend for RustBackend {
     fn get_assert_eq_string(&self, left: String, right: String) -> String {
         format!("assert_eq!({left}, {right});")
     }
+    fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String {
+        format!("{id}({})", arg_list.join(", "))
+    }
 }
 
 #[derive(Debug)]

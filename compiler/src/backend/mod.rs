@@ -21,6 +21,7 @@ pub trait Backend {
     fn make_loop_string(&self, c: char, body: String) -> String;
     fn get_return_string(&self, id: String) -> String;
     fn get_assert_eq_string(&self, left: String, right: String) -> String;
+    fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String;
 }
 
 pub struct Generator<B> {
