@@ -67,11 +67,32 @@ impl<B: Backend> Generator<B> {
         let return_ = self.backend.get_return_type_string();
         let body = match expr {
             Expr::Dependency(dependency) => self.gen_dependency_body(dependency, &args),
-            Expr::Combinator(combinator) => unimplemented!(),
+            Expr::Combinator(combinator) => self.gen_combinator_body(combinator, &args),
         };
         Ok(self
             .backend
             .gen_kernel(id, arg_declaration_strings, return_, body))
+    }
+
+    fn gen_combinator_body(&self, combinator: &Combinator, args: &Vec<String>) -> String {
+        match combinator {
+            Combinator::Chain(first, second) => {
+                // get_args is called twice on this expr, but oh well, not the end of the world
+                let n_args_first = self.get_args(&self.expr_bank.0[first.0], 0).len();
+                let (first_args, second_args_) = args.split_at(n_args_first);
+
+                let first_id = format!("f{}", first.0);
+                let first_call = format!("{}", self.backend.gen_call(first_id, &first_args.to_vec()));
+
+                let mut second_args = vec![first_call];
+                second_args.extend_from_slice(second_args_);
+
+                let second_id = format!("f{}", second.0);
+                let second_call = self.backend.gen_call(second_id, &second_args);
+
+                format!("{second_call}")
+            }
+        }
     }
 
     fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
