@@ -96,13 +96,10 @@ impl<'a> Parser<'a> {
 
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
         match self.tokenizer.peek() {
-            [Token::Operator(_), _] | [_, Token::Operator(_)] => {
-                Ok(Expr::Dependency(self.parse_dependency()?))
-            }
-            [_, Token::Squiggle] | [_, Token::Operator(_)] => {
-                Ok(Expr::Dependency(self.parse_dependency()?))
-            }
             [_, Token::Dot] => Ok(Expr::Combinator(self.parse_combinator()?)),
+            [Token::Operator(_), _] | [_, Token::Operator(_)] | [_, Token::Squiggle] => {
+                Ok(Expr::Dependency(self.parse_dependency()?))
+            }
             _ => Err(ParseError::InvalidToken {
                 expected: "Dependency or Dot".to_string(),
             }),
