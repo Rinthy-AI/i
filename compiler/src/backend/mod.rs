@@ -25,24 +25,26 @@ pub trait Backend {
 
 pub struct Generator<B> {
     backend: B,
+    ast: AST,
+    expr_bank: ExprBank
 }
 
 impl<B: Backend> Generator<B> {
-    pub fn new(backend: B) -> Self {
-        Self { backend }
+    pub fn new(backend: B, ast: AST, expr_bank: ExprBank) -> Self {
+        Self { backend, ast, expr_bank }
     }
 
-    pub fn gen(&self, ast: AST, expr_bank: ExprBank) -> Result<String, String> {
-        match ast {
-            AST::Program(_) => Ok(self.gen_expr_bank(expr_bank, true)?),
-            AST::Library(_) => Ok(self.gen_expr_bank(expr_bank, false)?),
+    pub fn gen(&self) -> Result<String, String> {
+        match self.ast {
+            AST::Program(_) => Ok(self.gen_expr_bank(true)?),
+            AST::Library(_) => Ok(self.gen_expr_bank(false)?),
         }
     }
 
-    pub fn gen_expr_bank(&self, expr_bank: ExprBank, program: bool) -> Result<String, String> {
+    pub fn gen_expr_bank(&self, program: bool) -> Result<String, String> {
         // index of the anonymous index. will be outside iteration if it does not exist.
-        let anon_ind = expr_bank.0.len() - (program as usize);
-        Ok(expr_bank
+        let anon_ind = self.expr_bank.0.len() - (program as usize);
+        Ok(self.expr_bank
             .0
             .iter()
             .enumerate()

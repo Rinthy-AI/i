@@ -24,13 +24,12 @@ fn main() -> Result<(), String> {
 
     //println!("{:#?}", Parser::new(input)?.parse());
 
-    //let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
-
-    //let backend = RustBackend {};
-    //let generator: backend::Generator<RustBackend> = Generator::new(backend);
-    //let code = generator.gen(ast, expr_bank).unwrap();
-    ////println!("{}", format_rust_code(code));
-    //println!("{}", code);
+    let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
+    let backend = RustBackend {};
+    let generator: backend::Generator<RustBackend> = Generator::new(backend, ast, expr_bank);
+    let code = generator.gen().unwrap();
+    //println!("{}", format_rust_code(code));
+    println!("{}", code);
 
     Ok(())
 }
