@@ -18,8 +18,9 @@ fn format_rust_code(code: String) -> String {
 
 fn main() -> Result<(), String> {
     let input = r#"
-        p: ik*kj~ijk
+        m: ik*kj~ijk
         a: +ijk~ij
+        m.a
     "#;
 
     //println!("{:#?}", Parser::new(input)?.parse());
@@ -27,7 +28,7 @@ fn main() -> Result<(), String> {
     let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
     let backend = RustBackend {};
     let generator: backend::Generator<RustBackend> = Generator::new(backend, ast, expr_bank);
-    let code = generator.gen().unwrap();
+    let code = format!("let f = {};", generator.gen().unwrap());
     //println!("{}", format_rust_code(code));
     println!("{}", code);
 

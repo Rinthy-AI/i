@@ -5,16 +5,16 @@ use crate::backend::Backend;
 pub struct RustBackend;
 impl Backend for RustBackend {
     fn gen_kernel(&self, id: Option<String>, args: Vec<String>, return_: String, body: String) -> String {
-        let id_string = match id {
-            Some(id) => format!("let {id} = "),
-            None => format!(""),
-        };
         let arg_list = args
             .iter()
             .map(|arg| format!("{}", arg))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("{id_string}|{arg_list}| -> {return_} {{ {body} }}")
+        let anon = format!("|{arg_list}| -> {return_} {{ {body} }}");
+        match id {
+            Some(id) => format!("let {id} = {anon};"),
+            None => format!("move {anon}"),
+        }
     }
     fn get_arg_declaration_string(&self, id: String) -> String {
         format!("{}: Array", id)

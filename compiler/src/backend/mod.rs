@@ -46,13 +46,15 @@ impl<B: Backend> Generator<B> {
     pub fn gen_expr_bank(&self, program: bool) -> Result<String, String> {
         // index of the anonymous index. will be outside iteration if it does not exist.
         let anon_ind = self.expr_bank.0.len() - (program as usize);
-        Ok(self.expr_bank
+        let module = self.expr_bank
             .0
             .iter()
             .enumerate()
             .map(|(ind, expr)| self.gen_expr(expr, if ind == anon_ind { None } else { Some(ind) }))
             .collect::<Result<Vec<_>, _>>()?
-            .join("\n\n"))
+            .join("\n\n");
+
+        Ok(self.backend.gen_scope(module))
     }
 
     pub fn gen_expr(&self, expr: &Expr, ind: Option<usize>) -> Result<String, String> {
