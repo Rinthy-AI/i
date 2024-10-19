@@ -68,7 +68,7 @@ impl<B: Backend> Generator<B> {
             .collect::<Vec<String>>();
         let return_ = self.backend.get_return_type_string();
         let body = match expr {
-            Expr::Dependency(dependency) => self.gen_dependency_body(dependency, &args),
+            Expr::Dependency(dependency) => self.gen_dependency_body(dependency),
             Expr::Combinator(combinator) => self.gen_combinator_body(combinator, &args),
         };
         Ok(self
@@ -114,7 +114,7 @@ impl<B: Backend> Generator<B> {
         }
     }
 
-    fn gen_dependency_body(&self, dependency: &Dependency, args: &Vec<String>) -> String {
+    fn gen_dependency_body(&self, dependency: &Dependency) -> String {
         let Dependency(scalar_op, result_index) = dependency;
 
         let out_dim_string = result_index
