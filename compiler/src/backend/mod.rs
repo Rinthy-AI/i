@@ -215,7 +215,7 @@ impl<B: Backend> Generator<B> {
         let dimension_assertions = index_to_dims
             .into_iter()
             .filter(|(_, v)| v.len() > 1)
-            .map(|(c, v)| {
+            .map(|(_, v)| {
                 let ((first_input_ind, first_dim), rest) = v.split_first().unwrap();
                 rest.iter()
                     .map(|(x_input_ind, x_dim)| {
