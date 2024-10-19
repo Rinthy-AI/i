@@ -49,6 +49,9 @@ impl Backend for RustBackend {
     fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String {
         format!("{id}({})", arg_list.join(", "))
     }
+    fn gen_scope(&self, body: String) -> String {
+        format!("{{{body}}}")
+    }
 }
 
 #[derive(Debug)]
