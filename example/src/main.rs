@@ -2,8 +2,13 @@ use macros::i;
 use compiler::backend::rust::Array;
 
 fn main() {
-    let p = i!(p: ik*kj~ijk);
-    let a = i!(a: +ijk~ij);
+
+    // matrix multiplication kernel
+    let mm = i!(
+        m: ik*kj~ijk
+        a: +ijk~ij
+        m.a
+    );
 
     let mut x = Array::new(vec![2, 2], 0.);
     let mut y = Array::new(vec![2, 2], 0.);
@@ -23,7 +28,9 @@ fn main() {
     // matmul
     // |0 -1||1 2| = |0 0| + |-3 -4| = |-3 -4|
     // |1  0||3 4|   |1 2|   | 0  0|   | 1  2|
-    let c = a(p(x, y));
+    //let c = a(p(x, y));
+
+    let c = mm(x,y);
 
     println!("{:#?}", c);
 }

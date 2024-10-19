@@ -7,16 +7,20 @@ i can be embedded into Rust. Here is an example showing a matrix multiply:
 ``` rust
 // from example/src/main.rs
 
-let m = i!(m: ik*kj~ijk); // the multiplies of a matmul
-let a = i!(a: +ijk~ij); // the accumulation of a matmul
+// matrix multiplication, multiplies, accumulation, expression chaining
+let mm = i!(
+    m: ik*kj~ijk
+    a: +ijk~ij
+    m.a
+);
 
-let result = a(m(x, y)); // for some matrices `x` and `y`
+let result = mm(x, y); // for some matrices `x` and `y`
 ```
 
 # Status
 
 - [x] parser
-- [x] simple Rust backend that generates everything but combinators
+- [x] basic (naive) Rust backend
 - [x] proc macro `i!()` for writing/running i code directly in Rust
 
 # Language Design
@@ -27,9 +31,9 @@ The fundamental expression type in i is the dependency expression.
 
 Here is an example:
 
-`p: ik*kj~ijk`.
+`m: ik*kj~ijk`.
 
-Specifically, this expression `p` describes the multiply operations in a matrix
+Specifically, this expression `m` describes the multiply operations in a matrix
 multiplication (without the accumulations). It is read as "ik times kj gives
 ijk". `ik` and `kj` are 2-dimensional indices over the arguments to the
 expression and `ijk` is a 3-dimensional index over the resulting array.
@@ -80,11 +84,12 @@ purpose of reshape/views on the inputs. An example is transpose:
 ### Combinator Expressions
 
 Aside from dependency expressions, i supports expression combinators. Currently
-the only combinator implemented is compose, which works according to the
-typically mathematical sense. For example, this matrix multiply expression
-first applies `p` to the argument and then applies `a` to the result:
+the only combinator implemented is chain, which passes the output of one
+expression to the input of another.  For example, this matrix multiply
+expression first applies `m` to the argument and then applies `a` to the
+result:
 
-`mm: a . p`.
+`mm: m.a`.
 
 ### Open Design Questions
 
@@ -110,4 +115,10 @@ first applies `p` to the argument and then applies `a` to the result:
   `x/x.sum()`. Maybe a "repeater" combinator that repeats its input?
 - In general how do we handle expressions of multiple inputs? Haskell has
   currying. Maybe that could be useful here?
+- How can we support stride iteration?
+- How could we do a 3x3 box filter (the example from the Halide paper)?
+- How could we do histogram? Do we even care about this?
+- In general, reductions are order-dependent, but currently we ignore this and
+  only consider associative reductions. Should we support non-associative
+  reductions?
 
