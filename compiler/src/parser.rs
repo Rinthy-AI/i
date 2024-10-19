@@ -174,7 +174,7 @@ impl<'a> Parser<'a> {
                         symbol: right.clone(),
                     }
                 })?;
-                Ok(Combinator::Compose(left_expr_ref, right_expr_ref))
+                Ok(Combinator::Chain(left_expr_ref, right_expr_ref))
             }
             _ => Err(ParseError::InvalidToken {
                 expected: "Combinator".to_string(),

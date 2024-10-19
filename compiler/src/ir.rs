@@ -54,7 +54,7 @@ pub struct NoOp(pub Symbol);
 
 #[derive(Clone, Debug)]
 pub enum Combinator {
-    Compose(ExprRef, ExprRef),
+    Chain(ExprRef, ExprRef),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
