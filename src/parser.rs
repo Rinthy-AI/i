@@ -1,5 +1,5 @@
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 
 use crate::tokenizer::{Token, Tokenizer};
 
@@ -128,7 +128,10 @@ impl<'a> Parser<'a> {
             _ => {
                 let expr = self.parse_expr()?;
                 expr_bank.0.push(expr);
-                Ok((AST::Program(Program(named_exprs, ExprRef(expr_bank.0.len()-1))), expr_bank))
+                Ok((
+                    AST::Program(Program(named_exprs, ExprRef(expr_bank.0.len() - 1))),
+                    expr_bank,
+                ))
             }
         }
     }
@@ -145,7 +148,7 @@ impl<'a> Parser<'a> {
             }
             _ => Err(ParseError::InvalidToken {
                 expected: "Colon".to_string(),
-            })
+            }),
         }
     }
 
@@ -214,18 +217,21 @@ impl<'a> Parser<'a> {
 
     fn parse_combinator(&mut self) -> Result<Combinator, ParseError> {
         let left = self.parse_symbol()?;
-        let left_expr_ref = self
-            .symbol_table
-            .get(&left)
-            .ok_or_else(|| ParseError::UnrecognizedSymbol { symbol: left.clone() })?;
+        let left_expr_ref =
+            self.symbol_table
+                .get(&left)
+                .ok_or_else(|| ParseError::UnrecognizedSymbol {
+                    symbol: left.clone(),
+                })?;
 
         match self.tokenizer.next() {
             Token::Dot => {
                 let right = self.parse_symbol()?;
-                let right_expr_ref = self
-                    .symbol_table
-                    .get(&right)
-                    .ok_or_else(|| ParseError::UnrecognizedSymbol { symbol: right.clone() })?;
+                let right_expr_ref = self.symbol_table.get(&right).ok_or_else(|| {
+                    ParseError::UnrecognizedSymbol {
+                        symbol: right.clone(),
+                    }
+                })?;
                 Ok(Combinator::Compose(left_expr_ref, right_expr_ref))
             }
             _ => Err(ParseError::InvalidToken {

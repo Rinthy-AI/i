@@ -52,7 +52,10 @@ impl<'a> Tokenizer<'a> {
         let mut tokenizer = Tokenizer {
             input,
             pos: 0,
-            peek: PeekBuffer {tokens: [Token::EOF, Token::EOF], pos: 0},
+            peek: PeekBuffer {
+                tokens: [Token::EOF, Token::EOF],
+                pos: 0,
+            },
         };
 
         // buffer the first two Tokens
