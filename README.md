@@ -122,3 +122,15 @@ result:
   only consider associative reductions. Should we support non-associative
   reductions?
 
+## Inspiration
+- [FlashAttention](https://arxiv.org/pdf/2205.14135) (hmm, could a compiler
+  learn/find FlashAttention?)
+- [TensorComprehensions](https://arxiv.org/pdf/1802.04730) (wow, terse DSLs are
+  cool af.)
+- [Torch einsum](https://pytorch.org/docs/stable/generated/torch.einsum.html)
+  (damn, even more terse than TCs.)
+- [Halide](https://people.csail.mit.edu/jrk/halide-pldi13.pdf) (decouple alg
+  description from scheduling, search for fast kernels.)
+- [tinygrad](https://github.com/tinygrad/tinygrad) (simple good, search for
+  fast kernels.)
+
