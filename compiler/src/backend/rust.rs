@@ -4,7 +4,13 @@ use crate::backend::Backend;
 
 pub struct RustBackend;
 impl Backend for RustBackend {
-    fn gen_kernel(&self, id: Option<String>, args: Vec<String>, return_: String, body: String) -> String {
+    fn gen_kernel(
+        &self,
+        id: Option<String>,
+        args: Vec<String>,
+        return_: String,
+        body: String,
+    ) -> String {
         let arg_list = args.join(", ");
         let anon = format!("|{arg_list}| -> {return_} {{ {body} }}");
         match id {

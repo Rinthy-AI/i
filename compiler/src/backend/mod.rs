@@ -7,7 +7,13 @@ use crate::ir::{
 };
 
 pub trait Backend {
-    fn gen_kernel(&self, id: Option<String>, args: Vec<String>, return_: String, body: String) -> String;
+    fn gen_kernel(
+        &self,
+        id: Option<String>,
+        args: Vec<String>,
+        return_: String,
+        body: String,
+    ) -> String;
     fn get_arg_declaration_string(&self, id: String) -> String;
     fn get_return_type_string(&self) -> String;
     fn get_var_declaration_string(&self, id: String, value: String) -> String;
@@ -27,12 +33,16 @@ pub trait Backend {
 pub struct Generator<B> {
     backend: B,
     ast: AST,
-    expr_bank: ExprBank
+    expr_bank: ExprBank,
 }
 
 impl<B: Backend> Generator<B> {
     pub fn new(backend: B, ast: AST, expr_bank: ExprBank) -> Self {
-        Self { backend, ast, expr_bank }
+        Self {
+            backend,
+            ast,
+            expr_bank,
+        }
     }
 
     pub fn gen(&self) -> Result<String, String> {
@@ -45,7 +55,8 @@ impl<B: Backend> Generator<B> {
     pub fn gen_expr_bank(&self, program: bool) -> Result<String, String> {
         // index of the anonymous index. will be outside iteration if it does not exist.
         let anon_ind = self.expr_bank.0.len() - (program as usize);
-        let module = self.expr_bank
+        let module = self
+            .expr_bank
             .0
             .iter()
             .enumerate()
@@ -84,7 +95,8 @@ impl<B: Backend> Generator<B> {
                 let (first_args, second_args_) = args.split_at(n_args_first);
 
                 let first_id = format!("f{}", first.0);
-                let first_call = format!("{}", self.backend.gen_call(first_id, &first_args.to_vec()));
+                let first_call =
+                    format!("{}", self.backend.gen_call(first_id, &first_args.to_vec()));
 
                 let mut second_args = vec![first_call];
                 second_args.extend_from_slice(second_args_);
@@ -100,9 +112,9 @@ impl<B: Backend> Generator<B> {
     fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
         match expr {
             Expr::Dependency(dependency) => match dependency {
-                Dependency(ScalarOp::BinaryOp(_), _) => vec![
-                    format!("in{arg_ct}"), format!("in{}", arg_ct + 1)
-                ],
+                Dependency(ScalarOp::BinaryOp(_), _) => {
+                    vec![format!("in{arg_ct}"), format!("in{}", arg_ct + 1)]
+                }
                 _ => vec![format!("in{arg_ct}")],
             },
             Expr::Combinator(Combinator::Chain(first, second)) => {
