@@ -65,8 +65,13 @@ pub struct Array {
 impl Array {
     pub fn new(shape: Vec<usize>, initial_value: f32) -> Self {
         let size = shape.iter().product();
+        Self::with_data(shape, vec![initial_value; size])
+    }
+
+    pub fn with_data(shape: Vec<usize>, data: Vec<f32>) -> Self {
+        assert_eq!(data.len(), shape.iter().product());
         Array {
-            data: vec![initial_value; size],
+            data,
             shape,
         }
     }
