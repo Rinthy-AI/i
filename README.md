@@ -1,7 +1,5 @@
 i is a language for writing pure array-valued expressions
 
-The name is subject to change.
-
 i can be embedded into Rust. Here is an example showing a matrix multiply:
 
 ``` rust
