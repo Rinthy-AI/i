@@ -121,6 +121,8 @@ result:
 - In general, reductions are order-dependent, but currently we ignore this and
   only consider associative reductions. Should we support non-associative
   reductions?
+- Should i be intrinsically affine indexed? That is, can the backend
+  interfacing code be written to expect single-usize indexing?
 
 ## Inspiration
 - [FlashAttention](https://arxiv.org/pdf/2205.14135) (hmm, could a compiler
