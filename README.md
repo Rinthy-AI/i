@@ -1,4 +1,8 @@
-i is a language for writing pure array-valued expressions
+<img src="logo.svg" alt="i logo" width="32">
+
+---
+
+i is a language for writing pure array-valued expressions.
 
 i can be embedded into Rust. Here is an example showing a matrix multiply:
 
