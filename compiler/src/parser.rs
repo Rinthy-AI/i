@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::ir::{
     BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, Library, NamedExpr, NoOp, Program,
-    ScalarOp, Symbol, UnaryOp, AST,
+    ScalarOp, Schedule, Symbol, UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
 
@@ -109,10 +109,24 @@ impl<'a> Parser<'a> {
     fn parse_dependency(&mut self) -> Result<Dependency, ParseError> {
         let scalarop = self.parse_scalarop()?;
         match self.tokenizer.next() {
-            Token::Squiggle => Ok(Dependency{ op: scalarop, out: self.parse_symbol()? }),
+            Token::Squiggle => Ok(Dependency{
+                op: scalarop,
+                out: self.parse_symbol()?,
+                schedule: self.parse_schedule()?,
+            }),
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),
             }),
+        }
+    }
+
+    fn parse_schedule(&mut self) -> Result<Option<Schedule>, ParseError> {
+        match self.tokenizer.peek()[0] {
+            Token::Bar => {
+                let _ = self.tokenizer.next();
+                Ok(Some(Schedule{order: self.parse_symbol()?}))
+            }
+            _ => Ok(None),
         }
     }
 

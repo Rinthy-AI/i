@@ -6,6 +6,7 @@ pub enum Token {
     Colon,
     Dot,
     Squiggle,
+    Bar,
     Operator(char),
     EOF,
 }
@@ -17,6 +18,7 @@ impl fmt::Display for Token {
             Token::Colon => write!(f, "[:]"),
             Token::Dot => write!(f, "[.]"),
             Token::Squiggle => write!(f, "[~]"),
+            Token::Bar => write!(f, "[|]"),
             Token::Operator(op) => write!(f, "Operator [{}]", op),
             Token::EOF => write!(f, "[EOF]"),
         }
@@ -104,6 +106,10 @@ impl<'a> Tokenizer<'a> {
                 self.consume_char();
                 Ok(Token::Squiggle)
             }
+            '|' => {
+                self.consume_char();
+                Ok(Token::Bar)
+            }
             '*' | '+' => {
                 self.consume_char();
                 Ok(Token::Operator(c))
@@ -129,7 +135,12 @@ impl<'a> Tokenizer<'a> {
     fn consume_str(&mut self) -> String {
         let start = self.pos;
         while self.pos < self.input.len()
-            && (self.peek_char().is_alphabetic() || self.peek_char() == '_')
+            && (
+                self.peek_char().is_alphabetic()
+                    || self.peek_char() == '_'
+                    || self.peek_char() == '\''
+                    || (self.pos > start && self.peek_char().is_numeric())
+            )
         {
             self.consume_char();
         }

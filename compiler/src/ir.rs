@@ -31,6 +31,12 @@ pub struct ExprRef(pub usize);
 pub struct Dependency{
     pub op: ScalarOp,
     pub out: Symbol,
+    pub schedule: Option<Schedule>
+}
+
+#[derive(Clone, Debug)]
+pub struct Schedule {
+    pub order: Symbol,
 }
 
 #[derive(Clone, Debug)]

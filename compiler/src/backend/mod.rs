@@ -113,7 +113,7 @@ impl<B: Backend> Generator<B> {
     fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
         match expr {
             Expr::Dependency(dependency) => match dependency {
-                Dependency{ op: ScalarOp::BinaryOp(_), out: _ } => {
+                Dependency{ op: ScalarOp::BinaryOp(_), out: _, schedule: _ } => {
                     vec![format!("in{arg_ct}"), format!("in{}", arg_ct + 1)]
                 }
                 _ => vec![format!("in{arg_ct}")],
