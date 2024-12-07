@@ -1,10 +1,10 @@
 pub mod rust;
 
-use std::collections::{HashMap, HashSet};
-
 use crate::ir::{
     BinaryOp, Combinator, Dependency, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
+
+use crate::node::{ArrayDim, Node, Value};
 
 pub trait Backend {
     fn gen_kernel(
@@ -23,11 +23,12 @@ pub trait Backend {
         op_identity_string: String,
     ) -> String;
     fn get_indexed_array_string(&self, id: String, index_vec: &Vec<String>) -> String;
-    fn make_loop_string(&self, c: char, body: String) -> String;
+    fn make_loop_string(&self, index: String, bound: String, body: String) -> String;
     fn get_return_string(&self, id: String) -> String;
     fn get_assert_eq_string(&self, left: String, right: String) -> String;
     fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String;
     fn gen_scope(&self, body: String) -> String;
+    fn gen_div_string(&self, numerator: String, divisor: String) -> String;
 }
 
 pub struct Generator<B> {
@@ -79,7 +80,7 @@ impl<B: Backend> Generator<B> {
             .collect::<Vec<String>>();
         let return_ = self.backend.get_return_type_string();
         let body = match expr {
-            Expr::Dependency(dependency) => self.gen_dependency_body(dependency),
+            Expr::Dependency(dependency) => self.gen_dependency_body(&dependency),
             Expr::Combinator(combinator) => self.gen_combinator_body(combinator, &args),
         };
         Ok(self
@@ -127,130 +128,108 @@ impl<B: Backend> Generator<B> {
     }
 
     fn gen_dependency_body(&self, dependency: &Dependency) -> String {
-        let Dependency{ op: scalar_op, out: result_index } = dependency;
+        let n = Node::new(dependency);
 
-        let out_dim_string = result_index
-            .0
-            .clone()
-            .chars()
-            .map(|c| format!("n{c}"))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let (input_index_strings, output_index_string) = dependency.get_index_strings();
-        let index_strings = [
-            input_index_strings.clone(),
-            vec![output_index_string.clone()],
-        ]
-        .concat();
-
-        let indices = index_strings
-            .iter()
-            .flat_map(|s| s.chars())
-            .collect::<HashSet<char>>();
-
-        // maps atomic index to vector over inputs, elements being flattened
-        // sets of (input_index, dimension_index)
-        let index_to_dims: HashMap<char, Vec<(usize, usize)>> = indices
-            .iter()
-            .map(|&c| {
-                let flattened = input_index_strings
-                    .iter()
-                    .enumerate()
-                    .flat_map(|(input_ind, input_index)| {
-                        input_index
-                            .chars()
-                            .enumerate()
-                            .filter(move |&(_, ch)| ch == c)
-                            .map(move |(dim, _)| (input_ind, dim))
-                    })
-                    .collect::<Vec<_>>();
-                (c, flattened)
-            })
-            .collect();
-
-        let dim_strings = indices
-            .iter()
-            .map(|c| match index_to_dims[c].get(0) {
-                Some(&(input_ind, dim)) => self.backend.get_var_declaration_string(
-                    format!("n{c}"),
-                    B::dim_size_string(format!("in{input_ind}"), dim),
-                ),
-                None => self
-                    .backend
-                    .get_var_declaration_string(format!("n{c}"), format!("1")),
+        let value_declaration_strings = n.values
+            .into_iter()
+            .filter_map(|(ident, variable)| {
+                match variable {
+                    Value::ArrayDim(ArrayDim{input, dim}) => Some(
+                        self.backend.get_var_declaration_string(
+                            ident,
+                            B::dim_size_string(format!("in{input}"), dim),
+                        )
+                    ),
+                    Value::Uint(u) => Some(
+                        self.backend.get_var_declaration_string(ident, u.to_string())
+                    ),
+                    Value::Index(_) => None,
+                }
             })
             .collect::<Vec<_>>()
-            .join("\n    ");
+            .join("\n");
 
         let out_array_declaration_string =
-            B::get_out_array_declaration_string(out_dim_string, scalar_op.get_identity_string());
+            B::get_out_array_declaration_string(
+                n.alloc.shape.join(", "),
+                format!("{:.1}", n.alloc.initial_value) // .to_string() doesn't have decimal
+            );
 
-        let (input_index_vecs, output_index_vec, op_char) = dependency.get_index_vecs_and_op_char();
+        let indexed_out_string = self.backend
+            .get_indexed_array_string("out".to_string(), &n.alloc.index);
 
-        let indexed_input_array_strings = input_index_vecs
+        let index_input_strings = n.accesses
             .iter()
             .enumerate()
-            .map(|(ind, index_vec)| {
-                self.backend
-                    .get_indexed_array_string(format!("in{ind}"), &index_vec)
+            .map(|(ind, access)| {
+                self.backend.get_indexed_array_string(format!("in{ind}"), &access.indices)
             })
             .collect::<Vec<_>>();
-        let indexed_output_array_strings = self
-            .backend
-            .get_indexed_array_string("out".to_string(), &output_index_vec);
 
-        let partial_op_string = match indexed_input_array_strings.len() {
-            1 => {
-                let x = &indexed_input_array_strings[0];
-                format!("{x}")
-            }
-            2 => {
-                let left = &indexed_input_array_strings[0];
-                let right = &indexed_input_array_strings[1];
-                format!("{left} {op_char} {right}")
-            }
+        let partial_op_string = match index_input_strings.len() {
+            1 => format!("{}", &index_input_strings[0]),
+            2 => format!("{} {} {}", &index_input_strings[0], n.op, &index_input_strings[1]),
             _ => panic!(),
         };
 
         let op_string = format!(
-            "{indexed_output_array_strings} = {indexed_output_array_strings} {op_char} ({partial_op_string});"
+            "{indexed_out_string} = {indexed_out_string} {} ({partial_op_string});",
+            n.op
         );
 
         let mut loop_string = op_string;
-        for c in indices {
-            loop_string = self.backend.make_loop_string(c, loop_string);
+        for l in n.loops.into_iter().rev() {
+            let index = l.iterations[1..].to_string();
+            let mut bound = l.iterations;
+            if let Some(splits) = n.splits.get(&bound) {
+                // TODO: This is also computed below
+                let outer_tile_width_string = format!("({})", splits.join(" * "));
+                bound = format!("({bound} + {outer_tile_width_string} - 1)/{outer_tile_width_string}");
+            }
+
+            // reconstruct index and handle partial tiles inside split loops
+            let index_reconstruction_string = match l.index_reconstruction {
+                Some(base_index) => {
+                    let splits = &n.splits[&format!("n{}", base_index)];
+
+                    let n_splits = splits.len();
+                    let outer_tile_width_string = (0..n_splits)
+                        .map(|ind| format!("n{base_index}{ind}"))
+                        .collect::<Vec<_>>()
+                        .join(" * ");
+
+                    let interim_loop_element_width_strings = (0..n_splits-1)
+                        .map(|ind| format!("n{base_index}{ind} * {base_index}{ind}"))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+
+                    let index_reconstruction_string = format!(
+                        "{base_index} * {outer_tile_width_string} + {interim_loop_element_width_strings} + {base_index}{}",
+                        n_splits-1
+                    );
+
+                    format!(
+                        "\n{}\n{}",
+                        self.backend.get_var_declaration_string(
+                            base_index.clone(),
+                            index_reconstruction_string
+                        ),
+                        format!("if n{base_index} <= {base_index} {{ continue; }}")
+                    )
+                }
+                None => "".to_string(),
+            };
+
+            loop_string = format!("{index_reconstruction_string}\n{loop_string}");
+            loop_string = self.backend.make_loop_string(index, bound, loop_string);
         }
 
         let return_string = self.backend.get_return_string("out".to_string());
 
-        let dimension_assertions = index_to_dims
-            .into_iter()
-            .filter(|(_, v)| v.len() > 1)
-            .map(|(_, v)| {
-                let ((first_input_ind, first_dim), rest) = v.split_first().unwrap();
-                rest.iter()
-                    .map(|(x_input_ind, x_dim)| {
-                        // (first, x)
-                        let first_shape_str =
-                            B::dim_size_string(format!("in{first_input_ind}"), *first_dim);
-                        let x_shape_str = B::dim_size_string(format!("in{x_input_ind}"), *x_dim);
-                        self.backend
-                            .get_assert_eq_string(first_shape_str, x_shape_str)
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })
-            .collect::<Vec<String>>()
-            .join("\n    ");
-
         format!(
             "
             // compute dims
-            {dim_strings}
-
-            // assert dim constraints
-            {dimension_assertions}
+            {value_declaration_strings}
 
             // initialize output Array
             {out_array_declaration_string}
@@ -262,78 +241,5 @@ impl<B: Backend> Generator<B> {
             {return_string}
         "
         )
-    }
-}
-
-impl Dependency {
-    // TODO: This pattern is really nasty. Maybe the `ScalarOp`-related enums should change
-    /// Returns vector of Strings for all input indices and one String for output index
-    fn get_index_strings(&self) -> (Vec<String>, String) {
-        let Dependency { op: scalar_op, out: output_index } = self;
-        let input_indices = match scalar_op {
-            ScalarOp::BinaryOp(BinaryOp::Mul(i0, i1))
-            | ScalarOp::BinaryOp(BinaryOp::Add(i0, i1)) => vec![i0.0.to_string(), i1.0.to_string()],
-            ScalarOp::UnaryOp(UnaryOp::Prod(i0)) | ScalarOp::UnaryOp(UnaryOp::Accum(i0)) => {
-                vec![i0.0.to_string()]
-            }
-            ScalarOp::NoOp(NoOp(i0)) => vec![i0.0.to_string()],
-        };
-        (input_indices, output_index.0.to_string())
-    }
-
-    /// Returns index vec for each input, index vec for output, op char
-    fn get_index_vecs_and_op_char(&self) -> (Vec<Vec<String>>, Vec<String>, String) {
-        let Dependency { op: scalar_op, out: output_index } = self;
-        let (input_index_vec, op_char) = scalar_op.get_index_vecs_and_op_char();
-        (input_index_vec, output_index.array_index_strings(), op_char)
-    }
-}
-
-impl ScalarOp {
-    fn get_identity_string(&self) -> String {
-        match self {
-            ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) | ScalarOp::UnaryOp(UnaryOp::Prod(_)) => {
-                "1.0".to_string()
-            }
-            ScalarOp::BinaryOp(BinaryOp::Add(_, _)) | ScalarOp::UnaryOp(UnaryOp::Accum(_)) => {
-                "0.0".to_string()
-            }
-            ScalarOp::NoOp(NoOp(_)) => "0.0".to_string(),
-        }
-    }
-
-    /// Returns index vec for each input and the op char
-    fn get_index_vecs_and_op_char(&self) -> (Vec<Vec<String>>, String) {
-        match self {
-            ScalarOp::BinaryOp(BinaryOp::Mul(in0_index, in1_index)) => (
-                vec![
-                    in0_index.array_index_strings(),
-                    in1_index.array_index_strings(),
-                ],
-                "*".to_string(),
-            ),
-            ScalarOp::BinaryOp(BinaryOp::Add(in0_index, in1_index)) => (
-                vec![
-                    in0_index.array_index_strings(),
-                    in1_index.array_index_strings(),
-                ],
-                "+".to_string(),
-            ),
-            ScalarOp::UnaryOp(UnaryOp::Prod(in0_index)) => {
-                (vec![in0_index.array_index_strings()], "*".to_string())
-            }
-            ScalarOp::UnaryOp(UnaryOp::Accum(in0_index)) => {
-                (vec![in0_index.array_index_strings()], "+".to_string())
-            }
-            ScalarOp::NoOp(NoOp(in0_index)) => {
-                (vec![in0_index.array_index_strings()], "+".to_string())
-            }
-        }
-    }
-}
-
-impl Symbol {
-    fn array_index_strings(&self) -> Vec<String> {
-        self.0.chars().map(|c| c.to_string()).collect()
     }
 }

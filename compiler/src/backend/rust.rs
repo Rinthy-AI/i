@@ -39,8 +39,8 @@ impl Backend for RustBackend {
     fn get_indexed_array_string(&self, id: String, index_vec: &Vec<String>) -> String {
         format!("{id}[&[{}]]", index_vec.join(", "))
     }
-    fn make_loop_string(&self, c: char, body: String) -> String {
-        format!("for {c} in 0..{} {{ {body} }}", format!("n{c}"))
+    fn make_loop_string(&self, index: String, bound: String, body: String) -> String {
+        format!("for {index} in 0..{bound} {{ {body} }}")
     }
     fn get_return_string(&self, id: String) -> String {
         id
@@ -53,6 +53,9 @@ impl Backend for RustBackend {
     }
     fn gen_scope(&self, body: String) -> String {
         format!("{{{body}}}")
+    }
+    fn gen_div_string(&self, numerator: String, divisor: String) -> String {
+        format!("{numerator}/{divisor}")
     }
 }
 
