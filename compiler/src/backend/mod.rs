@@ -112,7 +112,7 @@ impl<B: Backend> Generator<B> {
     fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
         match expr {
             Expr::Dependency(dependency) => match dependency {
-                Dependency(ScalarOp::BinaryOp(_), _) => {
+                Dependency{ op: ScalarOp::BinaryOp(_), out: _ } => {
                     vec![format!("in{arg_ct}"), format!("in{}", arg_ct + 1)]
                 }
                 _ => vec![format!("in{arg_ct}")],
@@ -127,7 +127,7 @@ impl<B: Backend> Generator<B> {
     }
 
     fn gen_dependency_body(&self, dependency: &Dependency) -> String {
-        let Dependency(scalar_op, result_index) = dependency;
+        let Dependency{ op: scalar_op, out: result_index } = dependency;
 
         let out_dim_string = result_index
             .0
@@ -269,7 +269,7 @@ impl Dependency {
     // TODO: This pattern is really nasty. Maybe the `ScalarOp`-related enums should change
     /// Returns vector of Strings for all input indices and one String for output index
     fn get_index_strings(&self) -> (Vec<String>, String) {
-        let Dependency(scalar_op, output_index) = self;
+        let Dependency { op: scalar_op, out: output_index } = self;
         let input_indices = match scalar_op {
             ScalarOp::BinaryOp(BinaryOp::Mul(i0, i1))
             | ScalarOp::BinaryOp(BinaryOp::Add(i0, i1)) => vec![i0.0.to_string(), i1.0.to_string()],
@@ -283,7 +283,7 @@ impl Dependency {
 
     /// Returns index vec for each input, index vec for output, op char
     fn get_index_vecs_and_op_char(&self) -> (Vec<Vec<String>>, Vec<String>, String) {
-        let Dependency(scalar_op, output_index) = self;
+        let Dependency { op: scalar_op, out: output_index } = self;
         let (input_index_vec, op_char) = scalar_op.get_index_vecs_and_op_char();
         (input_index_vec, output_index.array_index_strings(), op_char)
     }
