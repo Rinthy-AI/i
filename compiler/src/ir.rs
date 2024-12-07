@@ -28,7 +28,10 @@ pub struct ExprBank(pub Vec<Expr>);
 pub struct ExprRef(pub usize);
 
 #[derive(Clone, Debug)]
-pub struct Dependency(pub ScalarOp, pub Symbol);
+pub struct Dependency{
+    pub op: ScalarOp,
+    pub out: Symbol,
+}
 
 #[derive(Clone, Debug)]
 pub enum ScalarOp {

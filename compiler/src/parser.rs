@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
     fn parse_dependency(&mut self) -> Result<Dependency, ParseError> {
         let scalarop = self.parse_scalarop()?;
         match self.tokenizer.next() {
-            Token::Squiggle => Ok(Dependency(scalarop, self.parse_symbol()?)),
+            Token::Squiggle => Ok(Dependency{ op: scalarop, out: self.parse_symbol()? }),
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),
             }),
