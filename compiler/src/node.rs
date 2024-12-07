@@ -45,7 +45,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(dep: &Dependency) -> Node {
-        let Dependency{ op: scalar_op, out: result_index, schedule } = dep;
+        let Dependency{ op: scalar_op, out: result_index } = dep;
 
         let (
             input_index_vecs,
@@ -125,7 +125,7 @@ impl Dependency {
     fn get_index_vecs_op_char_and_init_value(&self) -> (
         Vec<Vec<String>>, Vec<String>, char, f32
     ) {
-        let Dependency{op: scalar_op, out: output_index, schedule: _} = self;
+        let Dependency{ op: scalar_op, out: output_index } = self;
         let (input_index_vec, op_char, init_value) = scalar_op.get_index_vecs_op_char_and_init_value();
         (input_index_vec, output_index.array_index_strings(), op_char, init_value)
     }
