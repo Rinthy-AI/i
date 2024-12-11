@@ -1,14 +1,10 @@
 #[derive(Debug)]
 pub enum AST {
     Program(Program),
-    Library(Library),
 }
 
 #[derive(Debug)]
 pub struct Program(pub Vec<NamedExpr>, pub ExprRef);
-
-#[derive(Debug)]
-pub struct Library(pub Vec<NamedExpr>);
 
 #[derive(Debug)]
 pub struct NamedExpr(pub Symbol, pub ExprRef);
