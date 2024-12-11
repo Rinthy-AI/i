@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ir::{
-    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, Library, NamedExpr, NoOp, Program,
+    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, NamedExpr, NoOp, Program,
     ScalarOp, Symbol, UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
@@ -65,17 +65,13 @@ impl<'a> Parser<'a> {
             let named_expr = self.parse_named_expr(&mut expr_bank)?;
             named_exprs.push(named_expr);
         }
-        match self.tokenizer.peek() {
-            [Token::EOF, _] => Ok((AST::Library(Library(named_exprs)), expr_bank)),
-            _ => {
-                let expr = self.parse_expr()?;
-                expr_bank.0.push(expr);
-                Ok((
-                    AST::Program(Program(named_exprs, ExprRef(expr_bank.0.len() - 1))),
-                    expr_bank,
-                ))
-            }
-        }
+        // parse final (non-named) expression
+        let expr = self.parse_expr()?;
+        expr_bank.0.push(expr);
+        Ok((
+            AST::Program(Program(named_exprs, ExprRef(expr_bank.0.len() - 1))),
+            expr_bank,
+        ))
     }
 
     fn parse_named_expr(&mut self, expr_bank: &mut ExprBank) -> Result<NamedExpr, ParseError> {

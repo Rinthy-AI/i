@@ -48,14 +48,13 @@ impl<B: Backend> Generator<B> {
 
     pub fn gen(&self) -> Result<String, String> {
         match self.ast {
-            AST::Program(_) => Ok(self.gen_expr_bank(true)?),
-            AST::Library(_) => Ok(self.gen_expr_bank(false)?),
+            AST::Program(_) => Ok(self.gen_expr_bank()?),
         }
     }
 
-    pub fn gen_expr_bank(&self, program: bool) -> Result<String, String> {
+    pub fn gen_expr_bank(&self) -> Result<String, String> {
         // index of the anonymous index. will be outside iteration if it does not exist.
-        let anon_ind = self.expr_bank.0.len() - (program as usize);
+        let anon_ind = self.expr_bank.0.len() - 1;
         let module = self
             .expr_bank
             .0
