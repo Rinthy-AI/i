@@ -47,9 +47,7 @@ impl<B: Backend> Generator<B> {
     }
 
     pub fn gen(&self) -> Result<String, String> {
-        match self.ast {
-            AST::Program(_) => Ok(self.gen_expr_bank()?),
-        }
+        Ok(self.gen_expr_bank()?)
     }
 
     pub fn gen_expr_bank(&self) -> Result<String, String> {
