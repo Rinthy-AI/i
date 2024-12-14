@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ir::{
-    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, NamedExpr, NoOp, Program,
+    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, NamedExpr, NoOp,
     ScalarOp, Symbol, UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
         let expr = self.parse_expr()?;
         expr_bank.0.push(expr);
         Ok((
-            AST::Program(Program(named_exprs, ExprRef(expr_bank.0.len() - 1))),
+            AST(named_exprs, ExprRef(expr_bank.0.len() - 1)),
             expr_bank,
         ))
     }
