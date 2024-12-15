@@ -1,7 +1,7 @@
 pub mod rust;
 
 use crate::ast::{
-    BinaryOp, Combinator, Dependency, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
+    BinaryOp, Combinator, IndexExpr, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 
 use crate::node::{ArrayDim, Node, Value};
@@ -77,7 +77,7 @@ impl<B: Backend> Generator<B> {
             .collect::<Vec<String>>();
         let return_ = self.backend.get_return_type_string();
         let body = match expr {
-            Expr::Dependency(dependency) => self.gen_dependency_body(&dependency),
+            Expr::Index(index_expr) => self.gen_index_expr_body(&index_expr),
             Expr::Combinator(combinator) => self.gen_combinator_body(combinator, &args),
         };
         Ok(self
@@ -109,8 +109,8 @@ impl<B: Backend> Generator<B> {
 
     fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
         match expr {
-            Expr::Dependency(dependency) => match dependency {
-                Dependency{ op: ScalarOp::BinaryOp(_), out: _ } => {
+            Expr::Index(index_expr) => match index_expr {
+                IndexExpr{ op: ScalarOp::BinaryOp(_), out: _ } => {
                     vec![format!("in{arg_ct}"), format!("in{}", arg_ct + 1)]
                 }
                 _ => vec![format!("in{arg_ct}")],
@@ -124,8 +124,8 @@ impl<B: Backend> Generator<B> {
         }
     }
 
-    fn gen_dependency_body(&self, dependency: &Dependency) -> String {
-        let n = Node::new(dependency);
+    fn gen_index_expr_body(&self, index_expr: &IndexExpr) -> String {
+        let n = Node::new(index_expr);
 
         let value_declaration_strings = n.values
             .into_iter()

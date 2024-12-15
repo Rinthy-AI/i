@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ast::{
-    BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, NamedExpr, NoOp,
+    BinaryOp, Combinator, IndexExpr, Expr, ExprBank, ExprRef, NamedExpr, NoOp,
     ScalarOp, Symbol, UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
@@ -77,18 +77,18 @@ impl<'a> Parser<'a> {
         match self.tokenizer.peek() {
             [_, Token::Dot] => Ok(Expr::Combinator(self.parse_combinator()?)),
             [Token::Operator(_), _] | [_, Token::Operator(_)] | [_, Token::Squiggle] => {
-                Ok(Expr::Dependency(self.parse_dependency()?))
+                Ok(Expr::Index(self.parse_index_expr()?))
             }
             _ => Err(ParseError::InvalidToken {
-                expected: "Dependency or Dot".to_string(),
+                expected: "Index or Dot".to_string(),
             }),
         }
     }
 
-    fn parse_dependency(&mut self) -> Result<Dependency, ParseError> {
+    fn parse_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
         let scalarop = self.parse_scalarop()?;
         match self.tokenizer.next() {
-            Token::Squiggle => Ok(Dependency{ op: scalarop, out: self.parse_symbol()? }),
+            Token::Squiggle => Ok(IndexExpr{ op: scalarop, out: self.parse_symbol()? }),
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),
             }),

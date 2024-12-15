@@ -6,7 +6,7 @@ pub struct NamedExpr(pub Symbol, pub ExprRef);
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-    Dependency(Dependency),
+    Index(IndexExpr),
     Combinator(Combinator),
 }
 
@@ -19,7 +19,7 @@ pub struct ExprBank(pub Vec<Expr>);
 pub struct ExprRef(pub usize);
 
 #[derive(Clone, Debug)]
-pub struct Dependency{
+pub struct IndexExpr{
     pub op: ScalarOp,
     pub out: Symbol,
 }

@@ -27,9 +27,9 @@ let result = mm(x, y); // for some matrices `x` and `y`
 
 # Language Design
 
-### Dependency Expressions
+### Index Expressions
 
-The fundamental expression type in i is the dependency expression.
+The fundamental expression type in i is the index expression.
 
 Here is an example:
 
@@ -52,18 +52,19 @@ The full domain of the function is determined by the Cartesian product of the
 domains of all unique indices. That is, there is one operation performed for
 every (i,j,k) triple.
 
-Dependency expression are so called because they map the dependencies of their
+Index expression are so called because they map the dependencies of their
 constituent scalar operations. All of the individual scalar operations indexed
-by a dependency expression are completely independent of each other, meaning
-they can be executed in any order. The expression are declarative in the sense
-that they describe the dependencies without imposing any ordering or other
-details about their execution. This property is a fundamental design motivation
-of i. This allows for calculating the dependency relationship of any two scalar
-ops by way of a simple recursive algorithm, eschewing the need to for the
+by an index expression are completely independent of each other, meaning they
+can be executed in any order. The expression are declarative in the sense that
+they describe the dependencies without imposing any ordering or other details
+about their execution. This property is a fundamental design motivation of i.
+This allows for calculating the dependency relationship of any two scalar ops
+by way of a simple recursive algorithm, eschewing the need to for the
 read/write dependency analysis algorithms common in polyhedral compilers.
 
-In addition to the _binary_ dependency expression above, there are also _unary_
-expressions. An example is the accumulation portion of a matrix multiplication:
+In addition to the _binary_ index expression above, there are also _unary_
+index expressions. An example is the accumulation portion of a matrix
+multiplication:
 
 `a: +ijk~ij`.
 
@@ -78,18 +79,17 @@ Conversely, indices present on the right but not the left indicate
 "unsqueezing" where an additional dimension of size 1 is added to the output.
 For example: `i~ij`.
 
-Finally, there are `no-op` dependency expressions which are purely for the
-purpose of reshape/views on the inputs. An example is transpose:
+Finally, there are `no-op` index expressions which are purely for the purpose
+of reshape/views on the inputs. An example is transpose:
 
 `t: ij~ji`.
 
 ### Combinator Expressions
 
-Aside from dependency expressions, i supports expression combinators. Currently
-the only combinator implemented is chain, which passes the output of one
-expression to the input of another.  For example, this matrix multiply
-expression first applies `m` to the argument and then applies `a` to the
-result:
+Aside from index expressions, i supports expression combinators. Currently the
+only combinator implemented is chain, which passes the output of one expression
+to the input of another.  For example, this matrix multiply expression first
+applies `m` to the argument and then applies `a` to the result:
 
 `mm: m.a`.
 
