@@ -4,7 +4,7 @@ use crate::backend::Backend;
 
 pub struct RustBackend;
 impl Backend for RustBackend {
-    fn gen_kernel(
+    fn gen_block(
         &self,
         id: Option<String>,
         args: Vec<String>,

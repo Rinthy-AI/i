@@ -4,10 +4,10 @@ use crate::ast::{
     BinaryOp, Combinator, IndexExpr, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 
-use crate::node::{ArrayDim, Node, Value};
+use crate::block::{ArrayDim, Block, Value};
 
 pub trait Backend {
-    fn gen_kernel(
+    fn gen_block(
         &self,
         id: Option<String>,
         args: Vec<String>,
@@ -82,7 +82,7 @@ impl<B: Backend> Generator<B> {
         };
         Ok(self
             .backend
-            .gen_kernel(id, arg_declaration_strings, return_, body))
+            .gen_block(id, arg_declaration_strings, return_, body))
     }
 
     fn gen_combinator_body(&self, combinator: &Combinator, args: &Vec<String>) -> String {
@@ -125,7 +125,7 @@ impl<B: Backend> Generator<B> {
     }
 
     fn gen_index_expr_body(&self, index_expr: &IndexExpr) -> String {
-        let n = Node::new(index_expr);
+        let n = Block::new(index_expr);
 
         let value_declaration_strings = n.values
             .into_iter()

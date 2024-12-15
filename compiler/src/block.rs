@@ -34,7 +34,7 @@ pub enum Value {
 }
 
 #[derive(Clone, Debug)]
-pub struct Node {
+pub struct Block {
     pub alloc: Alloc,
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
@@ -43,8 +43,8 @@ pub struct Node {
     pub splits: HashMap<String, Vec<String>>, // from arraydim value to uint values
 }
 
-impl Node {
-    pub fn new(dep: &IndexExpr) -> Node {
+impl Block {
+    pub fn new(dep: &IndexExpr) -> Self {
         let IndexExpr{ op: scalar_op, out: result_index } = dep;
 
         let (
@@ -109,7 +109,7 @@ impl Node {
             })
             .collect();
 
-        Node {
+        Self {
             alloc,
             accesses,
             op,
