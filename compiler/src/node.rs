@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ir::{ BinaryOp, Dependency, NoOp, ScalarOp, Symbol, UnaryOp, };
+use crate::ast::{ BinaryOp, Dependency, NoOp, ScalarOp, Symbol, UnaryOp, };
 
 #[derive(Clone, Debug)]
 pub struct Loop {

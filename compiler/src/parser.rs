@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ir::{
+use crate::ast::{
     BinaryOp, Combinator, Dependency, Expr, ExprBank, ExprRef, NamedExpr, NoOp,
     ScalarOp, Symbol, UnaryOp, AST,
 };

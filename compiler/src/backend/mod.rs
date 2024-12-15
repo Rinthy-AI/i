@@ -1,6 +1,6 @@
 pub mod rust;
 
-use crate::ir::{
+use crate::ast::{
     BinaryOp, Combinator, Dependency, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 

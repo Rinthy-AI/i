@@ -1,5 +1,5 @@
 mod backend;
-mod ir;
+mod ast;
 mod node;
 mod parser;
 mod tokenizer;
