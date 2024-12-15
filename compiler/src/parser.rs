@@ -28,33 +28,16 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
-#[derive(Debug)]
-pub struct SymbolTable(HashMap<Symbol, ExprRef>);
-
-impl SymbolTable {
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-
-    fn add(&mut self, symbol: Symbol, expr: ExprRef) {
-        self.0.insert(symbol, expr);
-    }
-
-    fn get(&self, symbol: &Symbol) -> Option<ExprRef> {
-        self.0.get(symbol).cloned()
-    }
-}
-
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
-    pub symbol_table: SymbolTable, // TODO: remove pub
+    pub symbol_table: HashMap<Symbol, ExprRef>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(input: &'a str) -> Result<Self, String> {
         Ok(Self {
             tokenizer: Tokenizer::new(input)?,
-            symbol_table: SymbolTable::new(),
+            symbol_table: HashMap::new(),
         })
     }
 
@@ -81,7 +64,7 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expr()?;
                 expr_bank.0.push(expr);
                 let expr_ref = ExprRef(expr_bank.0.len() - 1);
-                self.symbol_table.add(ident.clone(), expr_ref);
+                self.symbol_table.insert(ident.clone(), expr_ref);
                 Ok(NamedExpr(ident, expr_ref))
             }
             _ => Err(ParseError::InvalidToken {
@@ -155,6 +138,7 @@ impl<'a> Parser<'a> {
         let left_expr_ref =
             self.symbol_table
                 .get(&left)
+                .cloned()
                 .ok_or_else(|| ParseError::UnrecognizedSymbol {
                     symbol: left.clone(),
                 })?;
@@ -162,7 +146,7 @@ impl<'a> Parser<'a> {
         match self.tokenizer.next() {
             Token::Dot => {
                 let right = self.parse_symbol()?;
-                let right_expr_ref = self.symbol_table.get(&right).ok_or_else(|| {
+                let right_expr_ref = self.symbol_table.get(&right).cloned().ok_or_else(|| {
                     ParseError::UnrecognizedSymbol {
                         symbol: right.clone(),
                     }
