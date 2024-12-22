@@ -2,11 +2,11 @@ mod ast;
 mod backend;
 mod block;
 mod lowerer;
-mod generator;
 mod parser;
+mod renderer;
 mod tokenizer;
 use crate::backend::rust::RustBackend;
-use crate::generator::Generator;
+use crate::renderer::Renderer;
 use crate::parser::Parser;
 
 // cargo fmt
@@ -38,8 +38,8 @@ fn main() -> Result<(), String> {
 
     let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
     let backend = RustBackend {};
-    let generator: generator::Generator<RustBackend> = Generator::new(backend, ast, expr_bank);
-    let code = format!("let f = {};", generator.gen().unwrap());
+    let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
+    let code = format!("let f = {};", renderer.render().unwrap());
     //println!("{}", format_rust_code(code));
     println!("{}", code);
 

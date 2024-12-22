@@ -5,13 +5,13 @@ use crate::backend::Backend;
 use crate::block::{ArrayDim, Block, Value};
 use crate::lowerer::lower;
 
-pub struct Generator<B> {
+pub struct Renderer<B> {
     backend: B,
     ast: AST,
     expr_bank: ExprBank,
 }
 
-impl<B: Backend> Generator<B> {
+impl<B: Backend> Renderer<B> {
     pub fn new(backend: B, ast: AST, expr_bank: ExprBank) -> Self {
         Self {
             backend,
@@ -20,11 +20,11 @@ impl<B: Backend> Generator<B> {
         }
     }
 
-    pub fn gen(&self) -> Result<String, String> {
-        Ok(self.gen_expr_bank()?)
+    pub fn render(&self) -> Result<String, String> {
+        Ok(self.render_expr_bank()?)
     }
 
-    pub fn gen_expr_bank(&self) -> Result<String, String> {
+    pub fn render_expr_bank(&self) -> Result<String, String> {
         // index of the anonymous index. will be outside iteration if it does not exist.
         let anon_ind = self.expr_bank.0.len() - 1;
         let module = self
@@ -32,14 +32,14 @@ impl<B: Backend> Generator<B> {
             .0
             .iter()
             .enumerate()
-            .map(|(ind, expr)| self.gen_expr(expr, if ind == anon_ind { None } else { Some(ind) }))
+            .map(|(ind, expr)| self.render_expr(expr, if ind == anon_ind { None } else { Some(ind) }))
             .collect::<Result<Vec<_>, _>>()?
             .join("\n\n");
 
         Ok(self.backend.gen_scope(module))
     }
 
-    pub fn gen_expr(&self, expr: &Expr, ind: Option<usize>) -> Result<String, String> {
+    pub fn render_expr(&self, expr: &Expr, ind: Option<usize>) -> Result<String, String> {
         let id = match ind {
             Some(ind) => Some(format!("f{}", ind)),
             None => None,
@@ -51,15 +51,15 @@ impl<B: Backend> Generator<B> {
             .collect::<Vec<String>>();
         let return_ = self.backend.get_return_type_string();
         let body = match expr {
-            Expr::Index(index_expr) => self.gen_index_expr_body(&index_expr),
-            Expr::Combinator(combinator) => self.gen_combinator_body(combinator, &args),
+            Expr::Index(index_expr) => self.render_index_expr_body(&index_expr),
+            Expr::Combinator(combinator) => self.render_combinator_body(combinator, &args),
         };
         Ok(self
             .backend
             .gen_block(id, arg_declaration_strings, return_, body))
     }
 
-    fn gen_combinator_body(&self, combinator: &Combinator, args: &Vec<String>) -> String {
+    fn render_combinator_body(&self, combinator: &Combinator, args: &Vec<String>) -> String {
         match combinator {
             Combinator::Chain(first, second) => {
                 // get_args is called twice on this expr, but oh well, not the end of the world
@@ -101,7 +101,7 @@ impl<B: Backend> Generator<B> {
         }
     }
 
-    fn gen_index_expr_body(&self, index_expr: &IndexExpr) -> String {
+    fn render_index_expr_body(&self, index_expr: &IndexExpr) -> String {
         let n = lower(index_expr);
 
         let value_declaration_strings = n
