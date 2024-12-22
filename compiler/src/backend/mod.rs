@@ -3,6 +3,7 @@ pub mod rust;
 use crate::ast::{
     BinaryOp, Combinator, Expr, ExprBank, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
+use crate::lowerer::lower;
 
 use crate::block::{ArrayDim, Block, Value};
 
@@ -128,7 +129,7 @@ impl<B: Backend> Generator<B> {
     }
 
     fn gen_index_expr_body(&self, index_expr: &IndexExpr) -> String {
-        let n = Block::new(index_expr);
+        let n = lower(index_expr);
 
         let value_declaration_strings = n
             .values

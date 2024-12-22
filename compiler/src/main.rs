@@ -1,6 +1,7 @@
 mod ast;
 mod backend;
 mod block;
+mod lowerer;
 mod parser;
 mod tokenizer;
 use crate::backend::rust::RustBackend;
