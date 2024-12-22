@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ast::{
-    BinaryOp, Combinator, IndexExpr, Expr, ExprBank, ExprRef, NamedExpr, NoOp,
-    ScalarOp, Symbol, UnaryOp, AST,
+    BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NamedExpr, NoOp, ScalarOp, Symbol,
+    UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
 
@@ -51,10 +51,7 @@ impl<'a> Parser<'a> {
         // parse final (non-named) expression
         let expr = self.parse_expr()?;
         expr_bank.0.push(expr);
-        Ok((
-            AST(named_exprs, ExprRef(expr_bank.0.len() - 1)),
-            expr_bank,
-        ))
+        Ok((AST(named_exprs, ExprRef(expr_bank.0.len() - 1)), expr_bank))
     }
 
     fn parse_named_expr(&mut self, expr_bank: &mut ExprBank) -> Result<NamedExpr, ParseError> {
@@ -88,7 +85,10 @@ impl<'a> Parser<'a> {
     fn parse_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
         let scalarop = self.parse_scalarop()?;
         match self.tokenizer.next() {
-            Token::Squiggle => Ok(IndexExpr{ op: scalarop, out: self.parse_symbol()? }),
+            Token::Squiggle => Ok(IndexExpr {
+                op: scalarop,
+                out: self.parse_symbol()?,
+            }),
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),
             }),
@@ -135,13 +135,11 @@ impl<'a> Parser<'a> {
 
     fn parse_combinator(&mut self) -> Result<Combinator, ParseError> {
         let left = self.parse_symbol()?;
-        let left_expr_ref =
-            self.symbol_table
-                .get(&left)
-                .cloned()
-                .ok_or_else(|| ParseError::UnrecognizedSymbol {
-                    symbol: left.clone(),
-                })?;
+        let left_expr_ref = self.symbol_table.get(&left).cloned().ok_or_else(|| {
+            ParseError::UnrecognizedSymbol {
+                symbol: left.clone(),
+            }
+        })?;
 
         match self.tokenizer.next() {
             Token::Dot => {

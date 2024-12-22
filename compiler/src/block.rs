@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{ BinaryOp, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp, };
+use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp};
 
 #[derive(Clone, Debug)]
 pub struct Loop {
@@ -29,7 +29,7 @@ pub struct ArrayDim {
 #[derive(Clone, Debug)]
 pub enum Value {
     ArrayDim(ArrayDim), // size of array dimension, e.g.,  `ni`
-    Index(String), // an index variable, e.g., `i`
+    Index(String),      // an index variable, e.g., `i`
     Uint(i32),
 }
 
@@ -45,14 +45,13 @@ pub struct Block {
 
 impl Block {
     pub fn new(dep: &IndexExpr) -> Self {
-        let IndexExpr{ op: scalar_op, out: result_index } = dep;
+        let IndexExpr {
+            op: scalar_op,
+            out: result_index,
+        } = dep;
 
-        let (
-            input_index_vecs,
-            output_index_vec,
-            op,
-            initial_value
-        ) = dep.get_index_vecs_op_char_and_init_value();
+        let (input_index_vecs, output_index_vec, op, initial_value) =
+            dep.get_index_vecs_op_char_and_init_value();
 
         let alloc = Alloc {
             initial_value,
@@ -98,7 +97,7 @@ impl Block {
                 .collect::<Vec<_>>();
 
             let (input, dim) = flattened[0]; // TODO: What if this fails?
-            values.insert(bound, Value::ArrayDim(ArrayDim{input, dim}));
+            values.insert(bound, Value::ArrayDim(ArrayDim { input, dim }));
         }
 
         let loops = indices
@@ -122,12 +121,19 @@ impl Block {
 
 impl IndexExpr {
     /// Returns index vec for each input, index vec for output, op char
-    fn get_index_vecs_op_char_and_init_value(&self) -> (
-        Vec<Vec<String>>, Vec<String>, char, f32
-    ) {
-        let IndexExpr{ op: scalar_op, out: output_index } = self;
-        let (input_index_vec, op_char, init_value) = scalar_op.get_index_vecs_op_char_and_init_value();
-        (input_index_vec, output_index.array_index_strings(), op_char, init_value)
+    fn get_index_vecs_op_char_and_init_value(&self) -> (Vec<Vec<String>>, Vec<String>, char, f32) {
+        let IndexExpr {
+            op: scalar_op,
+            out: output_index,
+        } = self;
+        let (input_index_vec, op_char, init_value) =
+            scalar_op.get_index_vecs_op_char_and_init_value();
+        (
+            input_index_vec,
+            output_index.array_index_strings(),
+            op_char,
+            init_value,
+        )
     }
 }
 
@@ -157,9 +163,7 @@ impl ScalarOp {
             ScalarOp::UnaryOp(UnaryOp::Accum(in0_index)) => {
                 (vec![in0_index.array_index_strings()], '+', 0.0)
             }
-            ScalarOp::NoOp(NoOp(in0_index)) => {
-                (vec![in0_index.array_index_strings()], '+', 1.0)
-            }
+            ScalarOp::NoOp(NoOp(in0_index)) => (vec![in0_index.array_index_strings()], '+', 1.0),
         }
     }
 }

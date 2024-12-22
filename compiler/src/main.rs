@@ -1,5 +1,5 @@
-mod backend;
 mod ast;
+mod backend;
 mod block;
 mod parser;
 mod tokenizer;
@@ -28,7 +28,7 @@ fn main() -> Result<(), String> {
 
     ik*kj~ijk
 
-    +ijk~ij | 
+    +ijk~ij |
 
     */
 

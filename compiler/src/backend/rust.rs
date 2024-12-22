@@ -73,10 +73,7 @@ impl Array {
 
     pub fn with_data(shape: Vec<usize>, data: Vec<f32>) -> Self {
         assert_eq!(data.len(), shape.iter().product());
-        Array {
-            data,
-            shape,
-        }
+        Array { data, shape }
     }
 
     /// affine transform to compute 1-D index from N-D indices

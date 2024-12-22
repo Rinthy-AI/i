@@ -1,7 +1,7 @@
 pub mod rust;
 
 use crate::ast::{
-    BinaryOp, Combinator, IndexExpr, Expr, ExprBank, NoOp, ScalarOp, Symbol, UnaryOp, AST,
+    BinaryOp, Combinator, Expr, ExprBank, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 
 use crate::block::{ArrayDim, Block, Value};
@@ -110,7 +110,10 @@ impl<B: Backend> Generator<B> {
     fn get_args(&self, expr: &Expr, arg_ct: usize) -> Vec<String> {
         match expr {
             Expr::Index(index_expr) => match index_expr {
-                IndexExpr{ op: ScalarOp::BinaryOp(_), out: _ } => {
+                IndexExpr {
+                    op: ScalarOp::BinaryOp(_),
+                    out: _,
+                } => {
                     vec![format!("in{arg_ct}"), format!("in{}", arg_ct + 1)]
                 }
                 _ => vec![format!("in{arg_ct}")],
@@ -127,45 +130,50 @@ impl<B: Backend> Generator<B> {
     fn gen_index_expr_body(&self, index_expr: &IndexExpr) -> String {
         let n = Block::new(index_expr);
 
-        let value_declaration_strings = n.values
+        let value_declaration_strings = n
+            .values
             .into_iter()
-            .filter_map(|(ident, variable)| {
-                match variable {
-                    Value::ArrayDim(ArrayDim{input, dim}) => Some(
-                        self.backend.get_var_declaration_string(
-                            ident,
-                            B::dim_size_string(format!("in{input}"), dim),
-                        )
-                    ),
-                    Value::Uint(u) => Some(
-                        self.backend.get_var_declaration_string(ident, u.to_string())
-                    ),
-                    Value::Index(_) => None,
+            .filter_map(|(ident, variable)| match variable {
+                Value::ArrayDim(ArrayDim { input, dim }) => {
+                    Some(self.backend.get_var_declaration_string(
+                        ident,
+                        B::dim_size_string(format!("in{input}"), dim),
+                    ))
                 }
+                Value::Uint(u) => Some(
+                    self.backend
+                        .get_var_declaration_string(ident, u.to_string()),
+                ),
+                Value::Index(_) => None,
             })
             .collect::<Vec<_>>()
             .join("\n");
 
-        let out_array_declaration_string =
-            B::get_out_array_declaration_string(
-                n.alloc.shape.join(", "),
-                format!("{:.1}", n.alloc.initial_value) // .to_string() doesn't have decimal
-            );
+        let out_array_declaration_string = B::get_out_array_declaration_string(
+            n.alloc.shape.join(", "),
+            format!("{:.1}", n.alloc.initial_value), // .to_string() doesn't have decimal
+        );
 
-        let indexed_out_string = self.backend
+        let indexed_out_string = self
+            .backend
             .get_indexed_array_string("out".to_string(), &n.alloc.index);
 
-        let index_input_strings = n.accesses
+        let index_input_strings = n
+            .accesses
             .iter()
             .enumerate()
             .map(|(ind, access)| {
-                self.backend.get_indexed_array_string(format!("in{ind}"), &access.indices)
+                self.backend
+                    .get_indexed_array_string(format!("in{ind}"), &access.indices)
             })
             .collect::<Vec<_>>();
 
         let partial_op_string = match index_input_strings.len() {
             1 => format!("{}", &index_input_strings[0]),
-            2 => format!("{} {} {}", &index_input_strings[0], n.op, &index_input_strings[1]),
+            2 => format!(
+                "{} {} {}",
+                &index_input_strings[0], n.op, &index_input_strings[1]
+            ),
             _ => panic!(),
         };
 
@@ -181,7 +189,8 @@ impl<B: Backend> Generator<B> {
             if let Some(splits) = n.splits.get(&bound) {
                 // TODO: This is also computed below
                 let outer_tile_width_string = format!("({})", splits.join(" * "));
-                bound = format!("({bound} + {outer_tile_width_string} - 1)/{outer_tile_width_string}");
+                bound =
+                    format!("({bound} + {outer_tile_width_string} - 1)/{outer_tile_width_string}");
             }
 
             // reconstruct index and handle partial tiles inside split loops
@@ -195,7 +204,7 @@ impl<B: Backend> Generator<B> {
                         .collect::<Vec<_>>()
                         .join(" * ");
 
-                    let interim_loop_element_width_strings = (0..n_splits-1)
+                    let interim_loop_element_width_strings = (0..n_splits - 1)
                         .map(|ind| format!("n{base_index}{ind} * {base_index}{ind}"))
                         .collect::<Vec<_>>()
                         .join(" + ");

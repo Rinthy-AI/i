@@ -19,7 +19,7 @@ pub struct ExprBank(pub Vec<Expr>);
 pub struct ExprRef(pub usize);
 
 #[derive(Clone, Debug)]
-pub struct IndexExpr{
+pub struct IndexExpr {
     pub op: ScalarOp,
     pub out: Symbol,
 }
