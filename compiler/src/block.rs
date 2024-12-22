@@ -26,7 +26,7 @@ pub struct ArrayDim {
 
 #[derive(Clone, Debug)]
 pub enum Value {
-    ArrayDim(ArrayDim), // size of array dimension, e.g.,  `ni`
+    ArrayDim(ArrayDim), // size of array dimension, e.g., `ni`
     Index(String),      // an index variable, e.g., `i`
     Uint(i32),
 }
