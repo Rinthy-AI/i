@@ -158,7 +158,6 @@ impl<B: Backend> Renderer<B> {
 
         let mut loop_string = op_string;
         for l in n.loops.into_iter().rev() {
-            let index = l.bound[1..].to_string();
             let mut bound = l.bound;
             if let Some(splits) = n.splits.get(&bound) {
                 // TODO: This is also computed below
@@ -201,7 +200,7 @@ impl<B: Backend> Renderer<B> {
             };
 
             loop_string = format!("{index_reconstruction_string}\n{loop_string}");
-            loop_string = self.backend.make_loop_string(index, bound, loop_string);
+            loop_string = self.backend.make_loop_string(l.index, bound, loop_string);
         }
 
         let return_string = self.backend.get_return_string("out".to_string());

@@ -62,6 +62,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
     let loops = indices
         .iter()
         .map(|index| Loop {
+            index: index.to_string(),
             bound: format!("n{index}"),
             index_reconstruction: None,
         })

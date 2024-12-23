@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug)]
 pub struct Loop {
+    pub index: String, // ident of Value::Uint iterator, e.g., `i`
     pub bound: String, // ident of Value::ArrayDim, e.g., `ni`
     pub index_reconstruction: Option<String>, // ident of Value
 }
