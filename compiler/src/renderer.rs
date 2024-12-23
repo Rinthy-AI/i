@@ -158,8 +158,8 @@ impl<B: Backend> Renderer<B> {
 
         let mut loop_string = op_string;
         for l in n.loops.into_iter().rev() {
-            let index = l.iterations[1..].to_string();
-            let mut bound = l.iterations;
+            let index = l.bound[1..].to_string();
+            let mut bound = l.bound;
             if let Some(splits) = n.splits.get(&bound) {
                 // TODO: This is also computed below
                 let outer_tile_width_string = format!("({})", splits.join(" * "));
