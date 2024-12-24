@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 pub struct Loop {
     pub index: String, // ident of Value::Uint iterator, e.g., `i`
     pub bound: String, // ident of Value::ArrayDim, e.g., `ni`
-    pub index_reconstruction: Option<String>, // ident of Value
+    pub index_reconstruction: Option<(String, String)>, // ident of Value
 }
 
 #[derive(Clone, Debug)]

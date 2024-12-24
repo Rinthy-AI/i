@@ -159,47 +159,16 @@ impl<B: Backend> Renderer<B> {
         let mut loop_string = op_string;
         for l in n.loops.into_iter().rev() {
             let mut bound = l.bound;
-            if let Some(splits) = n.splits.get(&bound) {
-                // TODO: This is also computed below
-                let outer_tile_width_string = format!("({})", splits.join(" * "));
-                bound =
-                    format!("({bound} + {outer_tile_width_string} - 1)/{outer_tile_width_string}");
+
+            if let Some((base_index, index_reconstruction_string)) = l.index_reconstruction {
+                let reconstruct_index_string = self.backend.get_var_declaration_string(
+                    base_index.clone(),
+                    index_reconstruction_string
+                );
+                let skip = format!("if n{base_index} <= {base_index} {{ continue; }}");
+                loop_string = format!("{reconstruct_index_string}\n{skip}\n{loop_string}");
             }
 
-            // reconstruct index and handle partial tiles inside split loops
-            let index_reconstruction_string = match l.index_reconstruction {
-                Some(base_index) => {
-                    let splits = &n.splits[&format!("n{}", base_index)];
-
-                    let n_splits = splits.len();
-                    let outer_tile_width_string = (0..n_splits)
-                        .map(|ind| format!("n{base_index}{ind}"))
-                        .collect::<Vec<_>>()
-                        .join(" * ");
-
-                    let interim_loop_element_width_strings = (0..n_splits - 1)
-                        .map(|ind| format!("n{base_index}{ind} * {base_index}{ind}"))
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-
-                    let index_reconstruction_string = format!(
-                        "{base_index} * {outer_tile_width_string} + {interim_loop_element_width_strings} + {base_index}{}",
-                        n_splits-1
-                    );
-
-                    format!(
-                        "\n{}\n{}",
-                        self.backend.get_var_declaration_string(
-                            base_index.clone(),
-                            index_reconstruction_string
-                        ),
-                        format!("if n{base_index} <= {base_index} {{ continue; }}")
-                    )
-                }
-                None => "".to_string(),
-            };
-
-            loop_string = format!("{index_reconstruction_string}\n{loop_string}");
             loop_string = self.backend.make_loop_string(l.index, bound, loop_string);
         }
 
