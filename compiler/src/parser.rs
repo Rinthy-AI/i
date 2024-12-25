@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ast::{
-    BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NamedExpr, NoOp, ScalarOp, Symbol,
-    UnaryOp, AST,
+    BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NamedExpr, NoOp, ScalarOp,
+    Schedule, Symbol, UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
 
@@ -88,6 +88,7 @@ impl<'a> Parser<'a> {
             Token::Squiggle => Ok(IndexExpr {
                 op: scalarop,
                 out: self.parse_symbol()?,
+                schedule: Schedule { splits: HashMap::new() },
             }),
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),

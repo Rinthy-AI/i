@@ -1,16 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp};
+use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
 use crate::block::{Loop, Alloc, Access, ArrayDim, Value, Block};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
         op: scalar_op,
         out: result_index,
+        schedule: Schedule {
+            splits,
+        },
     } = dep;
-
-    let mut splits = HashMap::new();
-    splits.insert("i".to_string(), vec![2, 8]);
 
     let mut split_counter: HashMap<String, usize> = splits
         .iter()
@@ -184,6 +184,7 @@ impl IndexExpr {
         let IndexExpr {
             op: scalar_op,
             out: output_index,
+            schedule: _,
         } = self;
         let (input_index_vec, op_char, init_value) =
             scalar_op.get_index_vecs_op_char_and_init_value();

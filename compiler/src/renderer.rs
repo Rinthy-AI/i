@@ -87,6 +87,7 @@ impl<B: Backend> Renderer<B> {
                 IndexExpr {
                     op: ScalarOp::BinaryOp(_),
                     out: _,
+                    schedule: _,
                 } => {
                     vec![format!("in{arg_ct}"), format!("in{}", arg_ct + 1)]
                 }

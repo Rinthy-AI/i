@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug)]
 pub struct AST(pub Vec<NamedExpr>, pub ExprRef);
 
@@ -25,6 +27,12 @@ pub struct ExprRef(pub usize);
 pub struct IndexExpr {
     pub op: ScalarOp,
     pub out: Symbol,
+    pub schedule: Schedule,
+}
+
+#[derive(Clone, Debug)]
+pub struct Schedule {
+    pub splits: HashMap::<String, Vec<i32>>,
 }
 
 #[derive(Clone, Debug)]
