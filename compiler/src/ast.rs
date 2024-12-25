@@ -2,7 +2,10 @@
 pub struct AST(pub Vec<NamedExpr>, pub ExprRef);
 
 #[derive(Debug)]
-pub struct NamedExpr(pub Symbol, pub ExprRef);
+pub struct NamedExpr {
+    pub ident: Symbol,
+    pub expr_ref: ExprRef,
+}
 
 #[derive(Clone, Debug)]
 pub enum Expr {

@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
                 expr_bank.0.push(expr);
                 let expr_ref = ExprRef(expr_bank.0.len() - 1);
                 self.symbol_table.insert(ident.clone(), expr_ref);
-                Ok(NamedExpr(ident, expr_ref))
+                Ok(NamedExpr{ ident, expr_ref })
             }
             _ => Err(ParseError::InvalidToken {
                 expected: "Colon".to_string(),
