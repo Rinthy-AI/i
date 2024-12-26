@@ -4,6 +4,7 @@ use std::fmt;
 pub enum Token {
     Symbol(String),
     Colon,
+    Comma,
     Dot,
     Squiggle,
     Bar,
@@ -17,6 +18,7 @@ impl fmt::Display for Token {
         match self {
             Token::Symbol(s) => write!(f, "[{}]", s),
             Token::Colon => write!(f, "[:]"),
+            Token::Comma => write!(f, "[,]"),
             Token::Dot => write!(f, "[.]"),
             Token::Squiggle => write!(f, "[~]"),
             Token::Bar => write!(f, "[|]"),
@@ -103,6 +105,10 @@ impl<'a> Tokenizer<'a> {
             ':' => {
                 self.consume_char();
                 Ok(Token::Colon)
+            }
+            ',' => {
+                self.consume_char();
+                Ok(Token::Comma)
             }
             '.' => {
                 self.consume_char();
