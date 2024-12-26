@@ -7,6 +7,7 @@ pub enum Token {
     Dot,
     Squiggle,
     Bar,
+    Int(String),
     Operator(char),
     EOF,
 }
@@ -19,6 +20,7 @@ impl fmt::Display for Token {
             Token::Dot => write!(f, "[.]"),
             Token::Squiggle => write!(f, "[~]"),
             Token::Bar => write!(f, "[|]"),
+            Token::Int(s) => write!(f, "[{}]", s),
             Token::Operator(op) => write!(f, "Operator [{}]", op),
             Token::EOF => write!(f, "[EOF]"),
         }
@@ -89,6 +91,10 @@ impl<'a> Tokenizer<'a> {
 
         let c = self.peek_char();
 
+        if c.is_numeric() {
+            return Ok(Token::Int(self.consume_int()));
+        }
+
         if c.is_alphabetic() || c == '_' {
             return Ok(Token::Symbol(self.consume_str()));
         }
@@ -130,6 +136,14 @@ impl<'a> Tokenizer<'a> {
         while self.pos < self.input.len() && self.peek_char().is_whitespace() {
             self.consume_char();
         }
+    }
+
+    fn consume_int(&mut self) -> String {
+        let start = self.pos;
+        while self.pos < self.input.len() && (self.peek_char().is_numeric()) {
+            self.consume_char();
+        }
+        self.input[start..self.pos].to_string()
     }
 
     fn consume_str(&mut self) -> String {
