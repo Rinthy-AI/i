@@ -90,6 +90,7 @@ impl<'a> Parser<'a> {
                 out: index_expr.out,
                 schedule: Schedule {
                     splits: self.parse_splits()?,
+                    loop_order: vec!(),
                 }
             }),
             _ => Ok(index_expr),
@@ -102,7 +103,10 @@ impl<'a> Parser<'a> {
             Token::Squiggle => Ok(IndexExpr {
                 op: scalarop,
                 out: self.parse_symbol()?,
-                schedule: Schedule { splits: HashMap::new() },
+                schedule: Schedule {
+                    splits: HashMap::new(),
+                    loop_order: vec!(),
+                },
             }),
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),

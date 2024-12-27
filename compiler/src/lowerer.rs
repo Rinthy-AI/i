@@ -9,7 +9,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
         out: result_index,
         schedule: Schedule {
             splits,
-            //loop_order,
+            loop_order,
         },
     } = dep;
 
