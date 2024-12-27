@@ -90,7 +90,7 @@ impl<'a> Parser<'a> {
                 out: index_expr.out,
                 schedule: Schedule {
                     splits: self.parse_splits()?,
-                    loop_order: vec!(),
+                    loop_order: self.parse_loop_order()?,
                 }
             }),
             _ => Ok(index_expr),
@@ -166,6 +166,37 @@ impl<'a> Parser<'a> {
                     expected: "Symbol".to_string(),
                 }),
             }
+        }
+    }
+
+    fn parse_loop_order(&mut self) -> Result<Vec<(String, i32)>, ParseError> {
+        // Skip the initial Bar token
+        self.tokenizer.next();
+        match self.tokenizer.next() {
+            Token::Symbol(s) => {
+                let mut result = Vec::new();
+                let mut chars = s.chars().peekable();
+                while let Some(c) = chars.next() {
+                    if c.is_alphabetic() {
+                        let mut apostrophe_count = 0;
+
+                        while let Some(&next) = chars.peek() {
+                            if next == '\'' {
+                                chars.next();
+                                apostrophe_count += 1;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        result.push((c.to_string(), apostrophe_count));
+                    }
+                }
+                Ok(result)
+            }
+            _ => Err(ParseError::InvalidToken {
+                expected: "Comma or end of schedule".to_string(),
+            }),
         }
     }
 
