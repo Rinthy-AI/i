@@ -9,8 +9,17 @@ pub fn lower(dep: &IndexExpr) -> Block {
         out: result_index,
         schedule: Schedule {
             splits,
+            //loop_order,
         },
     } = dep;
+
+    // TODO: Remove this (debugging code)
+    let loop_order = vec![
+        ("i".to_string(), 0),
+        ("i".to_string(), 1),
+        ("j".to_string(), 0),
+        ("k".to_string(), 0),
+    ];
 
     let mut split_counter: HashMap<String, usize> = splits
         .iter()
@@ -79,13 +88,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
     }
 
     let mut loop_indices = Vec::new();
-    for index in indices {
-        loop_indices.push(LoopIndex::Base(index));
-    }
-    for (base_index, loop_splits) in splits.iter() {
-        for factor in loop_splits {
-            loop_indices.push(LoopIndex::Split(base_index.clone(), factor.clone()));
+    for (index, rank) in loop_order {
+        if rank == 0 {
+            loop_indices.push(LoopIndex::Base(index.clone()));
+        } else {
+            loop_indices.push(LoopIndex::Split(index.clone(), splits[&index][rank - 1]));
         }
+    }
+
+    if loop_order.is_empty() {
+        loop_indices = indices.iter().map(|index| LoopIndex::Base(index.clone())).collect();
     }
 
     // TODO: Clean this up
