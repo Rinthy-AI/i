@@ -83,6 +83,20 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
+        let index_expr = self.parse_unscheduled_index_expr()?;
+        match self.tokenizer.peek()[0] {
+            Token::Bar => Ok(IndexExpr {
+                op: index_expr.op,
+                out: index_expr.out,
+                schedule: Schedule {
+                    splits: self.parse_splits()?,
+                }
+            }),
+            _ => Ok(index_expr),
+        }
+    }
+
+    fn parse_unscheduled_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
         let scalarop = self.parse_scalarop()?;
         match self.tokenizer.next() {
             Token::Squiggle => Ok(IndexExpr {
@@ -93,6 +107,61 @@ impl<'a> Parser<'a> {
             _ => Err(ParseError::InvalidToken {
                 expected: "Squiggle".to_string(),
             }),
+        }
+    }
+
+    fn parse_splits(&mut self) -> Result<HashMap<String, Vec<i32>>, ParseError> {
+        // Skip the initial Bar token
+        self.tokenizer.next();
+
+        let mut splits = HashMap::new();
+
+        loop {
+            // Parse the index identifier
+            match self.tokenizer.next() {
+                Token::Symbol(s) => {
+                    let mut split_factors = Vec::new();
+
+                    // Keep parsing colon-separated integers
+                    loop {
+                        match self.tokenizer.peek()[0] {
+                            Token::Colon => {
+                                self.tokenizer.next(); // consume the colon
+                                match self.tokenizer.next() {
+                                    Token::Int(num) => {
+                                        split_factors.push(num.parse::<i32>().unwrap());
+                                    }
+                                    _ => return Err(ParseError::InvalidToken {
+                                        expected: "Integer".to_string(),
+                                    }),
+                                }
+                            }
+                            Token::EOF | Token::Squiggle => {
+                                splits.insert(s, split_factors);
+                                return Ok(splits);
+                            }
+                            Token::Symbol(_) | Token::Operator(_) | Token::Dot | Token::Bar => {
+                                splits.insert(s, split_factors);
+                                return Ok(splits);
+                            }
+                            _ => {
+                                // Check if there's a comma indicating another split-list
+                                if let Token::Comma = self.tokenizer.next() {
+                                    splits.insert(s, split_factors);
+                                    break; // Continue to parse the next split-list
+                                } else {
+                                    return Err(ParseError::InvalidToken {
+                                        expected: "Comma or end of schedule".to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => return Err(ParseError::InvalidToken {
+                    expected: "Symbol".to_string(),
+                }),
+            }
         }
     }
 

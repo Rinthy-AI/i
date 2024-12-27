@@ -32,6 +32,7 @@ pub struct IndexExpr {
 
 #[derive(Clone, Debug)]
 pub struct Schedule {
+    // Should we have a `SplitTable` AST type? What about `Int` and using it and `Symbol` here?
     pub splits: HashMap::<String, Vec<i32>>,
 }
 
