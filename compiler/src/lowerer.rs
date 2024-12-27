@@ -13,14 +13,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         },
     } = dep;
 
-    // TODO: Remove this (debugging code)
-    let loop_order = vec![
-        ("i".to_string(), 0),
-        ("i".to_string(), 1),
-        ("j".to_string(), 0),
-        ("k".to_string(), 0),
-    ];
-
     let mut split_counter: HashMap<String, usize> = splits
         .iter()
         .map(|(dim, split)| (dim.clone(), split.len()))
@@ -89,10 +81,10 @@ pub fn lower(dep: &IndexExpr) -> Block {
 
     let mut loop_indices = Vec::new();
     for (index, rank) in loop_order {
-        if rank == 0 {
+        if *rank == 0 {
             loop_indices.push(LoopIndex::Base(index.clone()));
         } else {
-            loop_indices.push(LoopIndex::Split(index.clone(), splits[&index][rank - 1]));
+            loop_indices.push(LoopIndex::Split(index.clone(), splits[index][*rank as usize - 1]));
         }
     }
 
