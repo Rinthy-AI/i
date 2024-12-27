@@ -5,43 +5,102 @@ mod lowerer;
 mod parser;
 mod renderer;
 mod tokenizer;
+
 use crate::backend::rust::RustBackend;
 use crate::renderer::Renderer;
 use crate::parser::Parser;
 
-use std::{fs, process::Command, env, path::Path};
+use std::{env, fs, io, process::Command};
+use std::io::Read;
 
-// cargo fmt
+// Formats Rust code using rustfmt
 fn format_rust_code(code: String) -> String {
     let path = "/tmp/tmp.rs";
     fs::write(&path, code).unwrap();
     Command::new("rustfmt").arg(&path).status().unwrap();
     fs::read_to_string(&path).unwrap()
 }
-// cargo fmt
 
 fn main() -> Result<(), String> {
-    // Get input and output file paths from command line arguments
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        return Err("Usage: program <input_file> <output_file>".to_string());
+
+    // Parse command-line arguments
+    let mut input_path: Option<String> = None;
+    let mut output_path: Option<String> = None;
+    let mut target = "rust";
+
+    let mut iter = args.iter().skip(1); // Skip the program name
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "-t" | "--target" => {
+                target = iter
+                    .next()
+                    .ok_or("Error: Missing value for --target")?;
+            }
+            "-h" | "--help" => {
+                print_help();
+                return Ok(());
+            }
+            other if input_path.is_none() => input_path = Some(other.to_string()),
+            other if output_path.is_none() => output_path = Some(other.to_string()),
+            _ => return Err("Error: Too many arguments".to_string()),
+        }
     }
-    let input_file = &args[1];
-    let output_file = &args[2];
 
-    // Read the input file
-    let input = fs::read_to_string(input_file)
-        .map_err(|e| format!("Failed to read input file: {}", e))?;
+    // Validate the target platform
+    if target != "rust" {
+        return Err(format!("Error: Unsupported target '{}'", target));
+    }
 
+    // Read input
+    let input = if let Some(path) = input_path {
+        if path == "-" {
+            let mut buffer = String::new();
+            io::stdin()
+                .read_to_string(&mut buffer)
+                .map_err(|e| format!("Failed to read from STDIN: {}", e))?;
+            buffer
+        } else {
+            fs::read_to_string(path)
+                .map_err(|e| format!("Failed to read input file: {}", e))?
+        }
+    } else {
+        return Err("Error: Missing input file".to_string());
+    };
+
+    // Process the input
     let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
     let backend = RustBackend {};
     let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
     let code = format!("fn main() {{ let f = {};}}", renderer.render().unwrap());
-
-    // Format the code and write to the output file
     let formatted_code = format_rust_code(code);
-    fs::write(output_file, formatted_code)
-        .map_err(|e| format!("Failed to write output file: {}", e))?;
+
+    // Write output
+    if let Some(path) = output_path {
+        if path == "-" {
+            println!("{}", formatted_code);
+        } else {
+            fs::write(path, formatted_code)
+                .map_err(|e| format!("Failed to write output file: {}", e))?;
+        }
+    } else {
+        println!("{}", formatted_code);
+    }
 
     Ok(())
+}
+
+// Prints the help message
+fn print_help() {
+    println!(
+        r#"Usage: ic [OPTIONS] [INPUT] [OUTPUT]
+
+Options:
+  -t, --target <TARGET>  Specify the target platform (default: rust)
+  -h, --help             Print this help message
+
+Arguments:
+  INPUT                  Path to the input file (use '-' for STDIN)
+  OUTPUT                 Path to the output file (use '-' for STDOUT)"#
+    );
 }
