@@ -9,8 +9,9 @@ use crate::backend::rust::RustBackend;
 use crate::renderer::Renderer;
 use crate::parser::Parser;
 
+use std::{fs, process::Command, env, path::Path};
+
 // cargo fmt
-use std::{fs, process::Command};
 fn format_rust_code(code: String) -> String {
     let path = "/tmp/tmp.rs";
     fs::write(&path, code).unwrap();
@@ -20,28 +21,27 @@ fn format_rust_code(code: String) -> String {
 // cargo fmt
 
 fn main() -> Result<(), String> {
-    let input = r#"
-        m: ik*kj~ijk
-        a: +ijk~ij
-        m.a
-    "#;
+    // Get input and output file paths from command line arguments
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 3 {
+        return Err("Usage: program <input_file> <output_file>".to_string());
+    }
+    let input_file = &args[1];
+    let output_file = &args[2];
 
-    /*
+    // Read the input file
+    let input = fs::read_to_string(input_file)
+        .map_err(|e| format!("Failed to read input file: {}", e))?;
 
-    ik*kj~ijk
-
-    +ijk~ij |
-
-    */
-
-    //println!("{:#?}", Parser::new(input)?.parse());
-
-    let (ast, expr_bank) = Parser::new(input)?.parse().unwrap();
+    let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
     let backend = RustBackend {};
     let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
-    let code = format!("let f = {};", renderer.render().unwrap());
-    //println!("{}", format_rust_code(code));
-    println!("{}", code);
+    let code = format!("fn main() {{ let f = {};}}", renderer.render().unwrap());
+
+    // Format the code and write to the output file
+    let formatted_code = format_rust_code(code);
+    fs::write(output_file, formatted_code)
+        .map_err(|e| format!("Failed to write output file: {}", e))?;
 
     Ok(())
 }
