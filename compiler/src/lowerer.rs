@@ -223,7 +223,7 @@ impl ScalarOp {
             ScalarOp::UnaryOp(UnaryOp::Accum(in0_index)) => {
                 (vec![in0_index.array_index_strings()], '+', 0.0)
             }
-            ScalarOp::NoOp(NoOp(in0_index)) => (vec![in0_index.array_index_strings()], '+', 1.0),
+            ScalarOp::NoOp(NoOp(in0_index)) => (vec![in0_index.array_index_strings()], '+', 0.0),
         }
     }
 }
