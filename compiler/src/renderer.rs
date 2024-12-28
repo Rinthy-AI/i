@@ -32,7 +32,9 @@ impl<B: Backend> Renderer<B> {
             .0
             .iter()
             .enumerate()
-            .map(|(ind, expr)| self.render_expr(expr, if ind == anon_ind { None } else { Some(ind) }))
+            .map(|(ind, expr)| {
+                self.render_expr(expr, if ind == anon_ind { None } else { Some(ind) })
+            })
             .collect::<Result<Vec<_>, _>>()?
             .join("\n\n");
 
@@ -162,10 +164,9 @@ impl<B: Backend> Renderer<B> {
             let mut bound = l.bound;
 
             if let Some((base_index, index_reconstruction_string)) = l.index_reconstruction {
-                let reconstruct_index_string = self.backend.get_var_declaration_string(
-                    base_index.clone(),
-                    index_reconstruction_string
-                );
+                let reconstruct_index_string = self
+                    .backend
+                    .get_var_declaration_string(base_index.clone(), index_reconstruction_string);
                 let skip = format!("if n{base_index} <= {base_index} {{ continue; }}");
                 loop_string = format!("{reconstruct_index_string}\n{skip}\n{loop_string}");
             }

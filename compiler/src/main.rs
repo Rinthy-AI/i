@@ -7,11 +7,11 @@ mod renderer;
 mod tokenizer;
 
 use crate::backend::rust::RustBackend;
-use crate::renderer::Renderer;
 use crate::parser::Parser;
+use crate::renderer::Renderer;
 
-use std::{env, fs, io, process::Command};
 use std::io::Read;
+use std::{env, fs, io, process::Command};
 
 // Formats Rust code using rustfmt
 fn format_rust_code(code: String) -> String {
@@ -33,9 +33,7 @@ fn main() -> Result<(), String> {
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "-t" | "--target" => {
-                target = iter
-                    .next()
-                    .ok_or("Error: Missing value for --target")?;
+                target = iter.next().ok_or("Error: Missing value for --target")?;
             }
             "-h" | "--help" => {
                 print_help();
@@ -61,8 +59,7 @@ fn main() -> Result<(), String> {
                 .map_err(|e| format!("Failed to read from STDIN: {}", e))?;
             buffer
         } else {
-            fs::read_to_string(path)
-                .map_err(|e| format!("Failed to read input file: {}", e))?
+            fs::read_to_string(path).map_err(|e| format!("Failed to read input file: {}", e))?
         }
     } else {
         return Err("Error: Missing input file".to_string());

@@ -1,16 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Loop, Alloc, Access, ArrayDim, Value, Block};
+use crate::block::{Access, Alloc, ArrayDim, Block, Loop, Value};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
         op: scalar_op,
         out: result_index,
-        schedule: Schedule {
-            splits,
-            loop_order,
-        },
+        schedule: Schedule { splits, loop_order },
     } = dep;
 
     let mut split_counter: HashMap<String, usize> = splits
@@ -84,12 +81,18 @@ pub fn lower(dep: &IndexExpr) -> Block {
         if *rank == 0 {
             loop_indices.push(LoopIndex::Base(index.clone()));
         } else {
-            loop_indices.push(LoopIndex::Split(index.clone(), splits[index][*rank as usize - 1]));
+            loop_indices.push(LoopIndex::Split(
+                index.clone(),
+                splits[index][*rank as usize - 1],
+            ));
         }
     }
 
     if loop_order.is_empty() {
-        loop_indices = indices.iter().map(|index| LoopIndex::Base(index.clone())).collect();
+        loop_indices = indices
+            .iter()
+            .map(|index| LoopIndex::Base(index.clone()))
+            .collect();
     }
 
     // TODO: Clean this up

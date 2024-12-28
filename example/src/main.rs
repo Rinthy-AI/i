@@ -1,8 +1,7 @@
-use macros::i;
 use compiler::backend::rust::Array;
+use macros::i;
 
 fn main() {
-
     // matrix multiplication kernel
     let mm = i!(
         m: ik*kj~ijk
@@ -14,28 +13,26 @@ fn main() {
     let mut y = Array::new(vec![2, 2], 0.);
 
     // 90-degree counterclockwise rotation matrix
-    x[&[0, 0]] =  0.;
+    x[&[0, 0]] = 0.;
     x[&[0, 1]] = -1.;
-    x[&[1, 0]] =  1.;
-    x[&[1, 1]] =  0.;
+    x[&[1, 0]] = 1.;
+    x[&[1, 1]] = 0.;
 
     // some other matrix
-    y[&[0, 0]] =  1.;
-    y[&[0, 1]] =  2.;
-    y[&[1, 0]] =  3.;
-    y[&[1, 1]] =  4.;
+    y[&[0, 0]] = 1.;
+    y[&[0, 1]] = 2.;
+    y[&[1, 0]] = 3.;
+    y[&[1, 1]] = 4.;
 
     // matmul
     // |0 -1||1 2| = |0 0| + |-3 -4| = |-3 -4|
     // |1  0||3 4|   |1 2|   | 0  0|   | 1  2|
     //let c = a(p(x, y));
 
-    let c = mm(x,y);
+    let c = mm(x, y);
 
     println!("{:#?}", c);
 }
-
-
 
 //use std::ops::{Index, IndexMut};
 //

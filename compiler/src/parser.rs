@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ast::{
-    BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NamedExpr, NoOp, ScalarOp,
-    Schedule, Symbol, UnaryOp, AST,
+    BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NamedExpr, NoOp, ScalarOp, Schedule,
+    Symbol, UnaryOp, AST,
 };
 use crate::tokenizer::{Token, Tokenizer};
 
@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
                 expr_bank.0.push(expr);
                 let expr_ref = ExprRef(expr_bank.0.len() - 1);
                 self.symbol_table.insert(ident.clone(), expr_ref);
-                Ok(NamedExpr{ ident, expr_ref })
+                Ok(NamedExpr { ident, expr_ref })
             }
             _ => Err(ParseError::InvalidToken {
                 expected: "Colon".to_string(),
@@ -91,7 +91,7 @@ impl<'a> Parser<'a> {
                 schedule: Schedule {
                     splits: self.parse_splits()?,
                     loop_order: self.parse_loop_order()?,
-                }
+                },
             }),
             _ => Ok(index_expr),
         }
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
                 out: self.parse_symbol()?,
                 schedule: Schedule {
                     splits: HashMap::new(),
-                    loop_order: vec!(),
+                    loop_order: vec![],
                 },
             }),
             _ => Err(ParseError::InvalidToken {
@@ -135,9 +135,11 @@ impl<'a> Parser<'a> {
                                     Token::Int(num) => {
                                         split_factors.push(num.parse::<i32>().unwrap());
                                     }
-                                    _ => return Err(ParseError::InvalidToken {
-                                        expected: "Integer".to_string(),
-                                    }),
+                                    _ => {
+                                        return Err(ParseError::InvalidToken {
+                                            expected: "Integer".to_string(),
+                                        })
+                                    }
                                 }
                             }
                             Token::EOF | Token::Squiggle => {
@@ -162,9 +164,11 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                _ => return Err(ParseError::InvalidToken {
-                    expected: "Symbol".to_string(),
-                }),
+                _ => {
+                    return Err(ParseError::InvalidToken {
+                        expected: "Symbol".to_string(),
+                    })
+                }
             }
         }
     }

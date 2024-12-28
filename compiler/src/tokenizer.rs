@@ -157,8 +157,7 @@ impl<'a> Tokenizer<'a> {
         while self.pos < self.input.len()
             && (self.peek_char().is_alphabetic()
                 || self.peek_char() == '_'
-                || self.peek_char() == '\''
-            )
+                || self.peek_char() == '\'')
         {
             self.consume_char();
         }
