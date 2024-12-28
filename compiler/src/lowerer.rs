@@ -98,8 +98,8 @@ pub fn lower(dep: &IndexExpr) -> Block {
     // TODO: Clean this up
     let loops = loop_indices
         .iter()
-        .map(|index| {
-            match index {
+        .map(|loop_index| {
+            let (base_index, index, bound) = match loop_index {
                 LoopIndex::Base(index) => {
                     let mut bound = format!("n{index}");
                     if let Some(loop_splits) = splits.get(index) {
@@ -113,15 +113,9 @@ pub fn lower(dep: &IndexExpr) -> Block {
                         );
                         bound = format!("({bound} + {tile_width_string} - 1)/{tile_width_string}");
                     }
-
-                    Loop {
-                        index: index.to_string(),
-                        bound,
-                        index_reconstruction: None,
-                    }
+                    (index.to_string(), index.to_string(), bound)
                 }
                 LoopIndex::Split(base_index, factor) => {
-                    // TODO: handle index_reconstruction
                     let n_loop_splits_total = splits
                         .get(base_index)
                         .expect("Could not find expected loop splits")
@@ -137,40 +131,46 @@ pub fn lower(dep: &IndexExpr) -> Block {
 
                     let index = format!("{base_index}{n_loop_splits_processed}");
 
-                    let index_reconstruction_string = if *n_loop_splits_remaining == 0 {
+                    (base_index.to_string(), index.to_string(), format!("n{index}"))
+                },
 
-                        // TODO: This is also computed in the above match arm. Can we dedup?
-                        let tile_width_string = format!(
-                            "({})",
-                            (0..n_loop_splits_total)
-                                .map(|i| format!("n{base_index}{i}"))
-                                .collect::<Vec<_>>()
-                                .join(" * ")
-                        );
+            };
 
-                        let interim_loop_element_width_strings = (0..n_loop_splits_total - 1)
-                            .map(|ind| format!(" + n{base_index}{ind} * {base_index}{ind}"))
+            let index_reconstruction = match split_counter.get(&base_index) {
+                Some(0) => {
+                    let n_loop_splits_total = splits
+                        .get(&base_index)
+                        .expect("Could not find expected loop splits")
+                        .len();
+
+                    let tile_width_string = format!(
+                        "({})",
+                        (0..n_loop_splits_total)
+                            .map(|i| format!("n{base_index}{i}"))
                             .collect::<Vec<_>>()
-                            .join("");
+                            .join(" * ")
+                    );
 
-                        Some(format!(
+                    let interim_loop_element_width_strings = (0..n_loop_splits_total - 1)
+                        .map(|ind| format!(" + n{base_index}{ind} * {base_index}{ind}"))
+                        .collect::<Vec<_>>()
+                        .join("");
+
+                    Some((
+                        base_index.clone(),
+                        format!(
                             "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
                             n_loop_splits_total - 1
-                        ))
-                    } else {
-                        None
-                    };
+                        )
+                    ))
+                }
+                _ => None,
+            };
 
-                    Loop {
-                        index: index.clone(),
-                        bound: format!("n{index}"),
-                        index_reconstruction: match index_reconstruction_string {
-                            Some(index_reconstruction_string) =>
-                                Some((base_index.clone(), index_reconstruction_string)),
-                            None => None,
-                        }
-                    }
-                },
+            Loop {
+                index,
+                bound,
+                index_reconstruction,
             }
         })
         .collect();
