@@ -74,7 +74,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
     #[derive(Clone, Debug)]
     enum LoopIndex {
         Base(String),
-        Split(String, i32),
+        Split(String, i32, i32), // index, split factor, loop rank - 1
     }
 
     let mut loop_indices = Vec::new();
@@ -85,6 +85,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
             loop_indices.push(LoopIndex::Split(
                 index.clone(),
                 splits[index][*rank as usize - 1],
+                *rank - 1,
             ));
         }
     }
@@ -115,12 +116,12 @@ pub fn lower(dep: &IndexExpr) -> Block {
                     }
                     (index.to_string(), index.to_string(), bound)
                 }
-                LoopIndex::Split(base_index, factor) => {
+                LoopIndex::Split(base_index, factor, rank) => {
                     let loop_splits_count = split_counter
                         .get_mut(base_index)
                         .expect("Could not find expected loop split count");
 
-                    let index = format!("{base_index}{loop_splits_count}");
+                    let index = format!("{base_index}{rank}");
 
                     *loop_splits_count += 1;
 
