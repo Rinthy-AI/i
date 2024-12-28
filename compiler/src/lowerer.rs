@@ -10,9 +10,10 @@ pub fn lower(dep: &IndexExpr) -> Block {
         schedule: Schedule { splits, loop_order },
     } = dep;
 
+    // for counting the loop splits processed so far
     let mut split_counter: HashMap<String, usize> = splits
         .iter()
-        .map(|(dim, split)| (dim.clone(), split.len()))
+        .map(|(dim, split)| (dim.clone(), 0))
         .collect();
 
     let (input_index_vecs, output_index_vec, op, initial_value) =
@@ -95,7 +96,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
             .collect();
     }
 
-    // TODO: Clean this up
     let loops = loop_indices
         .iter()
         .map(|loop_index| {
@@ -116,20 +116,13 @@ pub fn lower(dep: &IndexExpr) -> Block {
                     (index.to_string(), index.to_string(), bound)
                 }
                 LoopIndex::Split(base_index, factor) => {
-                    let n_loop_splits_total = splits
-                        .get(base_index)
-                        .expect("Could not find expected loop splits")
-                        .len();
-
-                    let n_loop_splits_remaining = split_counter
+                    let loop_splits_count = split_counter
                         .get_mut(base_index)
                         .expect("Could not find expected loop split count");
 
-                    let n_loop_splits_processed = n_loop_splits_total - *n_loop_splits_remaining;
+                    let index = format!("{base_index}{loop_splits_count}");
 
-                    *n_loop_splits_remaining -= 1;
-
-                    let index = format!("{base_index}{n_loop_splits_processed}");
+                    *loop_splits_count += 1;
 
                     (base_index.to_string(), index.to_string(), format!("n{index}"))
                 },
@@ -137,7 +130,8 @@ pub fn lower(dep: &IndexExpr) -> Block {
             };
 
             let index_reconstruction = match split_counter.get(&base_index) {
-                Some(0) => {
+                // ok to unwrap since by construction `split_counter` has an entry iff `splits` does
+                Some(n) if *n == splits.get(&base_index).unwrap().len() => {
                     let n_loop_splits_total = splits
                         .get(&base_index)
                         .expect("Could not find expected loop splits")
