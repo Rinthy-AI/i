@@ -30,7 +30,6 @@ pub enum Expr {
     Alloc {
         initial_value: f32,
         shape: Vec<String>,
-        index: Vec<String>,
     },
     ArrayDim {
         input: usize,

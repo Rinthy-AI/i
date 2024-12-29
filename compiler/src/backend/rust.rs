@@ -55,11 +55,7 @@ impl Backend for RustBackend {
 
     fn render_expr(expr: &Expr) -> String {
         match expr {
-            Expr::Alloc {
-                initial_value,
-                shape,
-                index,
-            } => {
+            Expr::Alloc { initial_value, shape } => {
                 format!(
                     "Array::new(vec![{}], {})",
                     format!("{}", shape.join(", ")),

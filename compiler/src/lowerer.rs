@@ -163,9 +163,8 @@ pub fn lower(dep: &IndexExpr) -> Block {
                 value: Expr::Alloc {
                     initial_value,
                     shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
-                    index: output_index_vec.clone(),
                 }
-            }
+            },
         ],
         accesses,
         op,
