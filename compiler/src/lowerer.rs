@@ -153,6 +153,10 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .collect();
 
     Block {
+        indexed_out_array: Expr::Indexed {
+            ident: "out".to_string(),
+            index: output_index_vec.clone(),
+        },
         statements: vec![
             Statement::Declaration {
                 ident: "out".to_string(),
