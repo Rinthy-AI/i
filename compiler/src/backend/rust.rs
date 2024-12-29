@@ -31,12 +31,6 @@ impl Backend for RustBackend {
     fn dim_size_string(id: String, dim: usize) -> String {
         format!("{id}.shape[{dim}]")
     }
-    fn get_out_array_declaration_string(
-        out_dim_string: String,
-        op_identity_string: String,
-    ) -> String {
-        format!("let mut out = Array::new(vec![{out_dim_string}], {op_identity_string});")
-    }
     fn get_indexed_array_string(&self, id: String, index_vec: &Vec<String>) -> String {
         format!("{id}[&[{}]]", index_vec.join(", "))
     }
