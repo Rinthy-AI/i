@@ -41,6 +41,10 @@ pub enum Expr {
     Op {
         op: char,
         inputs: Vec<Expr>,
+    },
+    Indexed {
+        ident: String,
+        index: Vec<String>,
     }
 }
 
@@ -54,6 +58,7 @@ pub enum Statement {
 
 #[derive(Clone, Debug)]
 pub struct Block {
+    //pub index_out_array: Expr::Indexed,
     pub statements: Vec<Statement>,
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,

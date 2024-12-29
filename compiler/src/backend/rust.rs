@@ -76,6 +76,7 @@ impl Backend for RustBackend {
                 op,
                 inputs,
             } => unimplemented!(),
+            Expr::Indexed { ident, index } => format!("{ident}[&[{}]]", index.join(", ")),
         }
     }
 
