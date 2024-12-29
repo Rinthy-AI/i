@@ -2,7 +2,7 @@ use crate::ast::{
     BinaryOp, Combinator, Expr, ExprBank, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 use crate::backend::Backend;
-use crate::block::{ArrayDim, Block, Value};
+use crate::block::{ArrayDim, Block, Expr as BlockExpr, Statement, Value};
 use crate::lowerer::lower;
 
 pub struct Renderer<B> {
@@ -126,14 +126,20 @@ impl<B: Backend> Renderer<B> {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let out_array_declaration_string = B::get_out_array_declaration_string(
-            n.alloc.shape.join(", "),
-            format!("{:.1}", n.alloc.initial_value), // .to_string() doesn't have decimal
-        );
+        let allocation_statement = &n.statements[0];
+        let out_array_declaration_string = B::render_statement(&allocation_statement);
+
+        let Statement::Declaration{
+            value: BlockExpr::Alloc {
+                index: out_index_vec,
+                ..
+            },
+            ..
+        } = allocation_statement else { panic!("First Block Statement was not Allocation") };
 
         let indexed_out_string = self
             .backend
-            .get_indexed_array_string("out".to_string(), &n.alloc.index);
+            .get_indexed_array_string("out".to_string(), &out_index_vec);
 
         let index_input_strings = n
             .accesses

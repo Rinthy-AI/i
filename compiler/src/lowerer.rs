@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Access, Alloc, ArrayDim, Block, Loop, Value};
+use crate::block::{Access, Alloc, ArrayDim, Block, Expr, Loop, Statement, Value};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
@@ -159,7 +159,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .collect();
 
     Block {
-        statements: vec![],
+        statements: vec![
+            Statement::Declaration {
+                ident: "out".to_string(),
+                value: Expr::Alloc {
+                    initial_value,
+                    shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
+                    index: output_index_vec.clone(),
+                }
+            }
+        ],
         alloc,
         accesses,
         op,
