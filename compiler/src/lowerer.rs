@@ -10,14 +10,38 @@ pub fn lower(dep: &IndexExpr) -> Block {
         schedule: Schedule { splits, loop_order },
     } = dep;
 
+    let (input_index_vecs, output_index_vec, op, initial_value) =
+        dep.get_index_vecs_op_char_and_init_value();
+
+    let indices: Vec<String> = input_index_vecs
+        .iter()
+        .flat_map(|v| v.iter())
+        .chain(output_index_vec.iter())
+        .flat_map(|s| s.chars())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .map(|c| c.to_string())
+        .collect();
+
+    let loop_order = if loop_order.is_empty() {
+        &indices
+            .iter()
+            .map(|index| (index.clone(), 0))
+            .collect()
+    } else {
+        loop_order
+    };
+
+    let mut splits = splits.clone();
+    for index in &indices {
+        splits.entry(index.clone()).or_insert_with(Vec::new);
+    }
+
     // for counting the loop splits processed so far
     let mut split_counter: HashMap<String, usize> = splits
         .iter()
         .map(|(dim, split)| (dim.clone(), 0))
         .collect();
-
-    let (input_index_vecs, output_index_vec, op, initial_value) =
-        dep.get_index_vecs_op_char_and_init_value();
 
     let alloc = Alloc {
         initial_value,
@@ -30,16 +54,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .map(|indices| Access {
             indices: indices.clone(),
         })
-        .collect();
-
-    let indices: Vec<String> = input_index_vecs
-        .iter()
-        .flat_map(|v| v.iter())
-        .chain(output_index_vec.iter())
-        .flat_map(|s| s.chars())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .map(|c| c.to_string())
         .collect();
 
     let mut values = HashMap::new();
@@ -71,39 +85,14 @@ pub fn lower(dep: &IndexExpr) -> Block {
         }
     }
 
-    #[derive(Clone, Debug)]
-    enum LoopIndex {
-        Base(String),
-        Split(String, i32, i32), // index, split factor, loop rank - 1
-    }
-
-    let mut loop_indices = Vec::new();
-    for (index, rank) in loop_order {
-        if *rank == 0 {
-            loop_indices.push(LoopIndex::Base(index.clone()));
-        } else {
-            loop_indices.push(LoopIndex::Split(
-                index.clone(),
-                splits[index][*rank as usize - 1],
-                *rank - 1,
-            ));
-        }
-    }
-
-    if loop_order.is_empty() {
-        loop_indices = indices
-            .iter()
-            .map(|index| LoopIndex::Base(index.clone()))
-            .collect();
-    }
-
-    let loops = loop_indices
+    let loops = loop_order
         .iter()
-        .map(|loop_index| {
-            let (base_index, index, bound) = match loop_index {
-                LoopIndex::Base(index) => {
+        .map(|(index, rank)| {
+            let (base_index, index, bound) = match rank {
+                0 => {
                     let mut bound = format!("n{index}");
-                    if let Some(loop_splits) = splits.get(index) {
+                    let loop_splits = &splits[index];
+                    if loop_splits.len() > 0 {
                         let n_loop_splits = loop_splits.len();
                         let tile_width_string = format!(
                             "({})",
@@ -116,50 +105,49 @@ pub fn lower(dep: &IndexExpr) -> Block {
                     }
                     (index.to_string(), index.to_string(), bound)
                 }
-                LoopIndex::Split(base_index, factor, rank) => {
-                    let loop_splits_count = split_counter
-                        .get_mut(base_index)
-                        .expect("Could not find expected loop split count");
-
-                    let index = format!("{base_index}{rank}");
-
-                    *loop_splits_count += 1;
+                _ => {
+                    let base_index = index.clone();
+                    let index = format!("{base_index}{}", rank - 1);
 
                     (base_index.to_string(), index.to_string(), format!("n{index}"))
                 },
 
             };
 
-            let index_reconstruction = match split_counter.get(&base_index) {
-                // ok to unwrap since by construction `split_counter` has an entry iff `splits` does
-                Some(n) if *n == splits.get(&base_index).unwrap().len() => {
-                    let n_loop_splits_total = splits
-                        .get(&base_index)
-                        .expect("Could not find expected loop splits")
-                        .len();
+            *split_counter
+                .get_mut(&base_index)
+                .expect("Could not find expected loop split count") += 1;
 
-                    let tile_width_string = format!(
-                        "({})",
-                        (0..n_loop_splits_total)
-                            .map(|i| format!("n{base_index}{i}"))
-                            .collect::<Vec<_>>()
-                            .join(" * ")
-                    );
+            // index reconstruction logic, to be performed on last loop of a split "family"
+            let n_index_family_loops = splits[&base_index].len() + 1;
+            let index_reconstruction = if split_counter[&base_index] == n_index_family_loops && n_index_family_loops > 1 {
+                let n_loop_splits_total = splits
+                    .get(&base_index)
+                    .expect("Could not find expected loop splits")
+                    .len();
 
-                    let interim_loop_element_width_strings = (0..n_loop_splits_total - 1)
-                        .map(|ind| format!(" + n{base_index}{ind} * {base_index}{ind}"))
+                let tile_width_string = format!(
+                    "({})",
+                    (0..n_loop_splits_total)
+                        .map(|i| format!("n{base_index}{i}"))
                         .collect::<Vec<_>>()
-                        .join("");
+                        .join(" * ")
+                );
 
-                    Some((
-                        base_index.clone(),
-                        format!(
-                            "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
-                            n_loop_splits_total - 1
-                        )
-                    ))
-                }
-                _ => None,
+                let interim_loop_element_width_strings = (0..n_loop_splits_total - 1)
+                    .map(|ind| format!(" + n{base_index}{ind} * {base_index}{ind}"))
+                    .collect::<Vec<_>>()
+                    .join("");
+
+                Some((
+                    base_index.clone(),
+                    format!(
+                        "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
+                        n_loop_splits_total - 1
+                    )
+                ))
+            } else {
+                None
             };
 
             Loop {
