@@ -159,6 +159,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .collect();
 
     Block {
+        statements: vec![],
         alloc,
         accesses,
         op,

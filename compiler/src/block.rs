@@ -33,7 +33,35 @@ pub enum Value {
 }
 
 #[derive(Clone, Debug)]
+pub enum Expr {
+    Alloc {
+        initial_value: f32,
+        shape: Vec<String>,
+        index: Vec<String>,
+    },
+    ArrayDim {
+        input: usize,
+        dim: usize,
+    },
+    Str(String),
+    Int(i32),
+    Op {
+        op: char,
+        inputs: Vec<Expr>,
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Statement {
+    Declaration {
+        ident: String,
+        value: Expr,
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Block {
+    pub statements: Vec<Statement>,
     pub alloc: Alloc,
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
