@@ -129,17 +129,7 @@ impl<B: Backend> Renderer<B> {
         let allocation_statement = &n.statements[0];
         let out_array_declaration_string = B::render_statement(&allocation_statement);
 
-        let Statement::Declaration{
-            value: BlockExpr::Alloc {
-                index: out_index_vec,
-                ..
-            },
-            ..
-        } = allocation_statement else { panic!("First Block Statement was not Allocation") };
-
-        let indexed_out_string = self
-            .backend
-            .get_indexed_array_string("out".to_string(), &out_index_vec);
+        let indexed_out_string = B::render_expr(&n.indexed_out_array);
 
         let index_input_strings = n
             .accesses
