@@ -1,6 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use crate::backend::Backend;
+use crate::block::{ Expr, Statement };
 
 pub struct RustBackend;
 impl Backend for RustBackend {
@@ -56,6 +57,41 @@ impl Backend for RustBackend {
     }
     fn gen_div_string(&self, numerator: String, divisor: String) -> String {
         format!("{numerator}/{divisor}")
+    }
+
+    fn render_expr(expr: &Expr) -> String {
+        match expr {
+            Expr::Alloc {
+                initial_value,
+                shape,
+                index,
+            } => {
+                format!(
+                    "Array::new(vec![{}], {})",
+                    format!("{}", shape.join(", ")),
+                    format!("{:.1}", initial_value), // using `.to_string()` won't produce decimal
+                )
+            }
+            Expr::ArrayDim {
+                input,
+                dim,
+            } => unimplemented!(),
+            Expr::Str(s) => unimplemented!(),
+            Expr::Int(i) => unimplemented!(),
+            Expr::Op {
+                op,
+                inputs,
+            } => unimplemented!(),
+        }
+    }
+
+    fn render_statement(statement: &Statement) -> String {
+        match statement {
+            Statement::Declaration{ ident, value } => format!(
+                "let mut {ident} = {};",
+                Self::render_expr(value)
+            ),
+        }
     }
 }
 

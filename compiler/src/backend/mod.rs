@@ -1,5 +1,7 @@
 pub mod rust;
 
+use crate::block::{ Expr, Statement };
+
 pub trait Backend {
     fn gen_block(
         &self,
@@ -23,4 +25,7 @@ pub trait Backend {
     fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String;
     fn gen_scope(&self, body: String) -> String;
     fn gen_div_string(&self, numerator: String, divisor: String) -> String;
+
+    fn render_expr(expr: &Expr) -> String;
+    fn render_statement(statement: &Statement) -> String;
 }
