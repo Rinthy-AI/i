@@ -8,13 +8,6 @@ pub struct Loop {
 }
 
 #[derive(Clone, Debug)]
-pub struct Alloc {
-    pub initial_value: f32,
-    pub shape: Vec<String>,
-    pub index: Vec<String>,
-}
-
-#[derive(Clone, Debug)]
 pub struct Access {
     pub indices: Vec<String>, // `Variable` ident, one per dim of accessed Array
 }
@@ -62,7 +55,6 @@ pub enum Statement {
 #[derive(Clone, Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
-    pub alloc: Alloc,
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
     pub op: char, // this can't be a char forever
