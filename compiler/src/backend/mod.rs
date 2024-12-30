@@ -1,6 +1,6 @@
 pub mod rust;
 
-use crate::block::{ Expr, Statement };
+use crate::block::{ Block, Expr, Statement };
 
 pub trait Backend {
     fn gen_block(
@@ -24,4 +24,5 @@ pub trait Backend {
 
     fn render_expr(expr: &Expr) -> String;
     fn render_statement(statement: &Statement) -> String;
+    fn render(block: &Block) -> String;
 }

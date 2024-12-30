@@ -13,15 +13,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
     let (input_index_vecs, output_index_vec, op, initial_value) =
         dep.get_index_vecs_op_char_and_init_value();
 
-    let mut statements = vec![
-        Statement::Declaration {
-            ident: "out".to_string(),
-            value: Expr::Alloc {
-                initial_value,
-                shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
-            }
-        },
-    ];
+    let mut statements = Vec::new();
 
     let indices: Vec<String> = input_index_vecs
         .iter()
@@ -89,6 +81,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
             }
         }
     }
+
+    statements.push(
+        Statement::Declaration {
+            ident: "out".to_string(),
+            value: Expr::Alloc {
+                initial_value,
+                shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
+            }
+        }
+    );
 
     let indexed_out_expr = Expr::Indexed {
         ident: "out".to_string(),
@@ -196,9 +198,11 @@ pub fn lower(dep: &IndexExpr) -> Block {
             loop_
         });
 
+    statements.push(loop_stack);
+    statements.push(Statement::Return { value: Expr::Ident("out".to_string()) });
+
     Block {
         statements,
-        loops: vec![loop_stack],
     }
 }
 

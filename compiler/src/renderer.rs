@@ -106,34 +106,6 @@ impl<B: Backend> Renderer<B> {
 
     fn render_index_expr_body(&self, index_expr: &IndexExpr) -> String {
         let n = lower(index_expr);
-
-        let value_declaration_strings = &n.statements[1..]
-            .iter()
-            .map(|statement| B::render_statement(&statement))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        let allocation_statement = &n.statements[0];
-        let out_array_declaration_string = B::render_statement(&allocation_statement);
-
-        let loop_string = B::render_statement(&n.loops[0]);
-
-        let return_string = self.backend.get_return_string("out".to_string());
-
-        format!(
-            "
-            // compute dims
-            {value_declaration_strings}
-
-            // initialize output Array
-            {out_array_declaration_string}
-
-            // loops
-            {loop_string}
-
-            // return
-            {return_string}
-        "
-        )
+        B::render(&n)
     }
 }

@@ -43,10 +43,12 @@ pub enum Statement {
         bound: String,
         body: Vec<Statement>,
     },
+    Return {
+        value: Expr,
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
-    pub loops: Vec<Statement>,
 }

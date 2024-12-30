@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use crate::backend::Backend;
-use crate::block::{ Expr, Statement };
+use crate::block::{ Block, Expr, Statement };
 
 pub struct RustBackend;
 impl Backend for RustBackend {
@@ -104,7 +104,16 @@ impl Backend for RustBackend {
                         .join("\n")
                 )
             }
+            Statement::Return { value } => Self::render_expr(&value),
         }
+    }
+
+    fn render(block: &Block) -> String {
+        block.statements
+            .iter()
+            .map(|statement| Self::render_statement(&statement))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
