@@ -168,9 +168,11 @@ pub fn lower(dep: &IndexExpr) -> Block {
             ident: "out".to_string(),
             index: output_index_vec.clone(),
         },
-        indexed_in_arrays,
         statements,
-        op,
+        op: Expr::Op {
+            op: op,
+            inputs: indexed_in_arrays,
+        },
         loops,
         splits: HashMap::new(),
     }

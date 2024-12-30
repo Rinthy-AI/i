@@ -118,24 +118,12 @@ impl<B: Backend> Renderer<B> {
 
         let indexed_out_string = B::render_expr(&n.indexed_out_array);
 
-        let index_input_strings = &n
-            .indexed_in_arrays
-            .iter()
-            .map(|expr| B::render_expr(expr))
-            .collect::<Vec<_>>();
+        let partial_op_string = B::render_expr(&n.op);
 
-        let partial_op_string = match index_input_strings.len() {
-            1 => format!("{}", &index_input_strings[0]),
-            2 => format!(
-                "{} {} {}",
-                &index_input_strings[0], n.op, &index_input_strings[1]
-            ),
-            _ => panic!(),
-        };
-
+        let BlockExpr::Op{ op: op_char, .. } = n.op else { panic!("op Expr not of variant `Op`") };
         let op_string = format!(
             "{indexed_out_string} = {indexed_out_string} {} ({partial_op_string});",
-            n.op
+            op_char
         );
 
         let mut loop_string = op_string;
