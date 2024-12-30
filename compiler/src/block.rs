@@ -22,7 +22,7 @@ pub struct ArrayDim {
 pub enum Value {
     ArrayDim(ArrayDim), // size of array dimension, e.g., `ni`
     Ident(String),      // an index variable, e.g., `i`
-    Uint(i32),
+    Int(i32),
 }
 
 #[derive(Clone, Debug)]

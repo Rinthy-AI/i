@@ -117,7 +117,7 @@ impl<B: Backend> Renderer<B> {
                         B::dim_size_string(format!("in{input}"), dim),
                     ))
                 }
-                Value::Uint(u) => Some(
+                Value::Int(u) => Some(
                     self.backend
                         .get_var_declaration_string(ident, u.to_string()),
                 ),

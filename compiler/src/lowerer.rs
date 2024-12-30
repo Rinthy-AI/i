@@ -74,7 +74,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
         values.insert(bound, Value::ArrayDim(ArrayDim { input, dim }));
         if let Some(split_factors) = splits.get(index) {
             for (ind, factor) in split_factors.iter().enumerate() {
-                values.insert(format!("n{index}{ind}"), Value::Uint(*factor));
+                values.insert(format!("n{index}{ind}"), Value::Int(*factor));
             }
         }
     }
