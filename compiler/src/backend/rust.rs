@@ -71,7 +71,16 @@ impl Backend for RustBackend {
             Expr::Op {
                 op,
                 inputs,
-            } => unimplemented!(),
+            } => match inputs.len() {
+                1 => format!("{}", Self::render_expr(&inputs[0])),
+                2 => format!(
+                    "{} {} {}",
+                    Self::render_expr(&inputs[0]),
+                    op,
+                    Self::render_expr(&inputs[1])
+                ),
+                _ => panic!(),
+            },
             Expr::Indexed { ident, index } => format!("{ident}[&[{}]]", index.join(", ")),
         }
     }
