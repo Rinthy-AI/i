@@ -41,7 +41,7 @@ pub enum Statement {
     Loop {
         index: String,
         bound: String,
-        index_reconstruction: Option<Box<(Statement, Statement)>>, // Declaration, Skip
+        body: Vec<Statement>,
     },
 }
 
@@ -49,5 +49,4 @@ pub enum Statement {
 pub struct Block {
     pub statements: Vec<Statement>,
     pub loops: Vec<Statement>,
-    pub op: Statement,
 }

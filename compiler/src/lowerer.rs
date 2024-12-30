@@ -111,8 +111,9 @@ pub fn lower(dep: &IndexExpr) -> Block {
         },
     };
 
-    let loops = loop_order
+    let loop_stack = loop_order
         .iter()
+        .rev()
         .map(|(index, rank)| {
             let (base_index, index, bound) = match rank {
                 0 => {
@@ -144,9 +145,9 @@ pub fn lower(dep: &IndexExpr) -> Block {
                 .get_mut(&base_index)
                 .expect("Could not find expected loop split count") += 1;
 
-            // index reconstruction logic, to be performed on last loop of a split "family"
+            // index reconstruction logic, to be performed on innermost loop of a split "family"
             let n_index_family_loops = splits[&base_index].len() + 1;
-            let index_reconstruction = if split_counter[&base_index] == n_index_family_loops && n_index_family_loops > 1 {
+            let body = if split_counter[&base_index] == 1 && n_index_family_loops > 1 {
                 let n_loop_splits_total = splits
                     .get(&base_index)
                     .expect("Could not find expected loop splits")
@@ -165,7 +166,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
                     .collect::<Vec<_>>()
                     .join("");
 
-                Some(Box::new((
+                vec![
                     Statement::Declaration {
                         ident: base_index.clone(),
                         value: Expr::Str(format!(
@@ -173,24 +174,31 @@ pub fn lower(dep: &IndexExpr) -> Block {
                             n_loop_splits_total - 1
                         )),
                     },
-                    Statement::Skip { index: base_index.clone(), bound: bound.clone() }
-                )))
+                    Statement::Skip {
+                        index: base_index.clone(),
+                        bound: format!("n{}", base_index.clone())
+                    },
+                ]
             } else {
-                None
+                vec![]
             };
 
             Statement::Loop {
                 index,
                 bound,
-                index_reconstruction,
+                body,
             }
         })
-        .collect();
+        .fold(op.clone(), |mut loop_stack, mut loop_| {
+            if let Statement::Loop{ ref mut body, .. } = loop_ {
+                body.push(loop_stack);
+            }
+            loop_
+        });
 
     Block {
         statements,
-        op,
-        loops,
+        loops: vec![loop_stack],
     }
 }
 

@@ -116,25 +116,7 @@ impl<B: Backend> Renderer<B> {
         let allocation_statement = &n.statements[0];
         let out_array_declaration_string = B::render_statement(&allocation_statement);
 
-        let op_string = B::render_statement(&n.op);
-
-        let mut loop_string = op_string;
-        for l in n.loops.into_iter().rev() {
-            let Statement::Loop{ index, bound, index_reconstruction } = l.clone()
-            else { panic!("Found non-Loop Statement in loops") };
-            let mut bound = bound.clone();
-
-            if let Some(statements) = index_reconstruction {
-                let (index_reconstruction, skip) = *statements; // deref Box
-                loop_string = format!(
-                    "{}\n{}\n{loop_string}",
-                    B::render_statement(&index_reconstruction),
-                    B::render_statement(&skip),
-                );
-            }
-
-            loop_string = self.backend.make_loop_string(index, bound, loop_string);
-        }
+        let loop_string = B::render_statement(&n.loops[0]);
 
         let return_string = self.backend.get_return_string("out".to_string());
 
