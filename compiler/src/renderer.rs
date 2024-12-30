@@ -121,7 +121,7 @@ impl<B: Backend> Renderer<B> {
                     self.backend
                         .get_var_declaration_string(ident, u.to_string()),
                 ),
-                Value::Index(_) => None,
+                Value::Ident(_) => None,
             })
             .collect::<Vec<_>>()
             .join("\n");

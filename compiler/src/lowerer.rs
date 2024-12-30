@@ -53,7 +53,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
     let mut values = HashMap::new();
     for index in &indices {
         // insert index itself
-        values.insert(index.clone(), Value::Index(index.clone()));
+        values.insert(index.clone(), Value::Ident(index.clone()));
 
         // get iterator bound from index, e.g., `i` -> `ni`
         let bound = format!("n{index}");
