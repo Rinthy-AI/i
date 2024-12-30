@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Access, Block, Expr, Loop, Statement};
+use crate::block::{Block, Expr, Loop, Statement};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
@@ -57,13 +57,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .iter()
         .enumerate()
         .map(|(ind, index)| Expr::Indexed { ident: format!("in{ind}"), index: index.clone() })
-        .collect();
-
-    let accesses = input_index_vecs
-        .iter()
-        .map(|indices| Access {
-            indices: indices.clone(),
-        })
         .collect();
 
     for index in &indices {
@@ -177,7 +170,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         },
         indexed_in_arrays,
         statements,
-        accesses,
         op,
         loops,
         splits: HashMap::new(),

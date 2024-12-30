@@ -8,11 +8,6 @@ pub struct Loop {
 }
 
 #[derive(Clone, Debug)]
-pub struct Access {
-    pub indices: Vec<String>, // `Variable` ident, one per dim of accessed Array
-}
-
-#[derive(Clone, Debug)]
 pub enum Expr {
     Alloc {
         initial_value: f32,
@@ -48,7 +43,6 @@ pub struct Block {
     pub indexed_out_array: Expr,
     pub indexed_in_arrays: Vec<Expr>,
     pub statements: Vec<Statement>,
-    pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
     pub op: char, // this can't be a char forever
     pub splits: HashMap<String, Vec<String>>, // from arraydim value to uint values

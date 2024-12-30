@@ -118,14 +118,10 @@ impl<B: Backend> Renderer<B> {
 
         let indexed_out_string = B::render_expr(&n.indexed_out_array);
 
-        let index_input_strings = n
-            .accesses
+        let index_input_strings = &n
+            .indexed_in_arrays
             .iter()
-            .enumerate()
-            .map(|(ind, access)| {
-                self.backend
-                    .get_indexed_array_string(format!("in{ind}"), &access.indices)
-            })
+            .map(|expr| B::render_expr(expr))
             .collect::<Vec<_>>();
 
         let partial_op_string = match index_input_strings.len() {
