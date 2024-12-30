@@ -2,7 +2,7 @@ use crate::ast::{
     BinaryOp, Combinator, Expr, ExprBank, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
 use crate::backend::Backend;
-use crate::block::{ArrayDim, Block, Expr as BlockExpr, Statement};
+use crate::block::{Block, Expr as BlockExpr, Statement};
 use crate::lowerer::lower;
 
 pub struct Renderer<B> {

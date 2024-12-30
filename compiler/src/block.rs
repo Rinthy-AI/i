@@ -13,12 +13,6 @@ pub struct Access {
 }
 
 #[derive(Clone, Debug)]
-pub struct ArrayDim {
-    pub input: usize,
-    pub dim: usize,
-}
-
-#[derive(Clone, Debug)]
 pub enum Expr {
     Alloc {
         initial_value: f32,
