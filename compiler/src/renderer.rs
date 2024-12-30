@@ -111,17 +111,18 @@ impl<B: Backend> Renderer<B> {
             .values
             .into_iter()
             .filter_map(|(ident, variable)| match variable {
-                Value::ArrayDim(ArrayDim { input, dim }) => {
+                BlockExpr::ArrayDim { input, dim } => {
                     Some(self.backend.get_var_declaration_string(
                         ident,
                         B::dim_size_string(format!("in{input}"), dim),
                     ))
                 }
-                Value::Int(u) => Some(
+                BlockExpr::Int(u) => Some(
                     self.backend
                         .get_var_declaration_string(ident, u.to_string()),
                 ),
-                Value::Ident(_) => None,
+                BlockExpr::Ident(_) => None,
+                _ => panic!("Unhandled Block Expr found in Block.values")
             })
             .collect::<Vec<_>>()
             .join("\n");

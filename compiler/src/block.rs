@@ -63,6 +63,6 @@ pub struct Block {
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
     pub op: char, // this can't be a char forever
-    pub values: HashMap<String, Value>,
+    pub values: HashMap<String, Expr>,
     pub splits: HashMap<String, Vec<String>>, // from arraydim value to uint values
 }
