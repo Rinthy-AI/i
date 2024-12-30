@@ -62,9 +62,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
 
     let mut values = HashMap::new();
     for index in &indices {
-        // insert index itself
-        values.insert(index.clone(), Expr::Ident(index.clone()));
-
         // get iterator bound from index, e.g., `i` -> `ni`
         let bound = format!("n{index}");
         // TODO: anywhere `flattened.len()>1` can become an assert
@@ -81,10 +78,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
             .collect::<Vec<_>>();
 
         let (input, dim) = flattened[0]; // TODO: What if this fails?
-        values.insert(bound, Expr::ArrayDim{ input, dim });
+        statements.push(Statement::Declaration {
+            ident: bound,
+            value: Expr::ArrayDim{ input, dim }
+        });
         if let Some(split_factors) = splits.get(index) {
             for (ind, factor) in split_factors.iter().enumerate() {
-                values.insert(format!("n{index}{ind}"), Expr::Int(*factor));
+                statements.push(Statement::Declaration {
+                    ident: format!("n{index}{ind}"),
+                    value: Expr::Int(*factor),
+                });
             }
         }
     }

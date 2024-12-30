@@ -107,23 +107,9 @@ impl<B: Backend> Renderer<B> {
     fn render_index_expr_body(&self, index_expr: &IndexExpr) -> String {
         let n = lower(index_expr);
 
-        let value_declaration_strings = n
-            .values
-            .into_iter()
-            .filter_map(|(ident, variable)| match variable {
-                BlockExpr::ArrayDim { input, dim } => {
-                    Some(self.backend.get_var_declaration_string(
-                        ident,
-                        B::dim_size_string(format!("in{input}"), dim),
-                    ))
-                }
-                BlockExpr::Int(u) => Some(
-                    self.backend
-                        .get_var_declaration_string(ident, u.to_string()),
-                ),
-                BlockExpr::Ident(_) => None,
-                _ => panic!("Unhandled Block Expr found in Block.values")
-            })
+        let value_declaration_strings = &n.statements[1..]
+            .iter()
+            .map(|statement| B::render_statement(&statement))
             .collect::<Vec<_>>()
             .join("\n");
 
