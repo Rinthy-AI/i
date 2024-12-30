@@ -44,9 +44,8 @@ pub enum Statement {
 
 #[derive(Clone, Debug)]
 pub struct Block {
-    pub indexed_out_array: Expr,
     pub statements: Vec<Statement>,
     pub loops: Vec<Loop>,
-    pub op: Expr,
+    pub op: Statement,
     pub splits: HashMap<String, Vec<String>>, // from arraydim value to uint values
 }

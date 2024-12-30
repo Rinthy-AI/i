@@ -116,15 +116,7 @@ impl<B: Backend> Renderer<B> {
         let allocation_statement = &n.statements[0];
         let out_array_declaration_string = B::render_statement(&allocation_statement);
 
-        let indexed_out_string = B::render_expr(&n.indexed_out_array);
-
-        let partial_op_string = B::render_expr(&n.op);
-
-        let BlockExpr::Op{ op: op_char, .. } = n.op else { panic!("op Expr not of variant `Op`") };
-        let op_string = format!(
-            "{indexed_out_string} = {indexed_out_string} {} ({partial_op_string});",
-            op_char
-        );
+        let op_string = B::render_statement(&n.op);
 
         let mut loop_string = op_string;
         for l in n.loops.into_iter().rev() {

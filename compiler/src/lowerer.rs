@@ -53,7 +53,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .map(|(dim, split)| (dim.clone(), 0))
         .collect();
 
-    let indexed_in_arrays = input_index_vecs
+    let indexed_in_arrays: Vec<_> = input_index_vecs
         .iter()
         .enumerate()
         .map(|(ind, index)| Expr::Indexed { ident: format!("in{ind}"), index: index.clone() })
@@ -163,16 +163,30 @@ pub fn lower(dep: &IndexExpr) -> Block {
         })
         .collect();
 
-    Block {
-        indexed_out_array: Expr::Indexed {
-            ident: "out".to_string(),
-            index: output_index_vec.clone(),
-        },
-        statements,
-        op: Expr::Op {
+    let indexed_out_expr = Expr::Indexed {
+        ident: "out".to_string(),
+        index: output_index_vec,
+    };
+
+    let partial_op_expr = Expr::Op {
+        op: op,
+        inputs: indexed_in_arrays,
+    };
+
+    let op = Statement::Assignment {
+        left: indexed_out_expr.clone(),
+        right: Expr::Op {
             op: op,
-            inputs: indexed_in_arrays,
+            inputs: vec![
+                indexed_out_expr,
+                partial_op_expr,
+            ],
         },
+    };
+
+    Block {
+        statements,
+        op,
         loops,
         splits: HashMap::new(),
     }
