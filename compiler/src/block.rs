@@ -14,7 +14,7 @@ pub enum Expr {
         shape: Vec<String>,
     },
     ArrayDim {
-        input: usize,
+        ident: String, // TODO: Should be Expr (Ident)
         dim: usize,
     },
     Str(String),
@@ -25,7 +25,7 @@ pub enum Expr {
         inputs: Vec<Expr>,
     },
     Indexed {
-        ident: String,
+        ident: String, // TODO: Should be Expr (Ident)
         index: Vec<String>,
     }
 }

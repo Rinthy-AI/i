@@ -75,10 +75,10 @@ pub fn lower(dep: &IndexExpr) -> Block {
             })
             .collect::<Vec<_>>();
 
-        let (input, dim) = flattened[0]; // TODO: What if this fails?
+        let (input_ind, dim) = flattened[0]; // TODO: What if this fails?
         statements.push(Statement::Declaration {
             ident: bound,
-            value: Expr::ArrayDim{ input, dim }
+            value: Expr::ArrayDim{ ident: format!("in{input_ind}"), dim }
         });
         if let Some(split_factors) = splits.get(index) {
             for (ind, factor) in split_factors.iter().enumerate() {

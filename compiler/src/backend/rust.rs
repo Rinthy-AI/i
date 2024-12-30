@@ -62,10 +62,7 @@ impl Backend for RustBackend {
                     format!("{:.1}", initial_value), // using `.to_string()` won't produce decimal
                 )
             }
-            Expr::ArrayDim {
-                input,
-                dim,
-            } => format!("in{input}.shape[{dim}]"),
+            Expr::ArrayDim { ident, dim } => format!("{ident}.shape[{dim}]"),
             Expr::Str(s) | Expr::Ident(s) => s.to_string(),
             Expr::Int(x) => format!("{x}"),
             Expr::Op {
