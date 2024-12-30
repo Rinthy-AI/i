@@ -5,6 +5,15 @@ use crate::block::{ Block, Expr, Statement };
 
 pub struct RustBackend;
 impl Backend for RustBackend {
+    fn gen_scope(&self, body: String) -> String {
+        format!("{{{body}}}")
+    }
+    fn get_arg_declaration_string(&self, id: String) -> String {
+        format!("{}: Array", id)
+    }
+    fn get_return_type_string(&self) -> String {
+        "Array".to_string()
+    }
     fn gen_block(
         &self,
         id: Option<String>,
@@ -19,40 +28,19 @@ impl Backend for RustBackend {
             None => format!("move {anon}"),
         }
     }
-    fn get_arg_declaration_string(&self, id: String) -> String {
-        format!("{}: Array", id)
-    }
-    fn get_return_type_string(&self) -> String {
-        "Array".to_string()
-    }
-    fn get_var_declaration_string(&self, id: String, value: String) -> String {
-        format!("let mut {id} = {value};")
-    }
-    fn dim_size_string(id: String, dim: usize) -> String {
-        format!("{id}.shape[{dim}]")
-    }
-    fn get_indexed_array_string(&self, id: String, index_vec: &Vec<String>) -> String {
-        format!("{id}[&[{}]]", index_vec.join(", "))
-    }
-    fn make_loop_string(&self, index: String, bound: String, body: String) -> String {
-        format!("for {index} in 0..{bound} {{ {body} }}")
-    }
-    fn get_return_string(&self, id: String) -> String {
-        id
-    }
-    fn get_assert_eq_string(&self, left: String, right: String) -> String {
-        format!("assert_eq!({left}, {right});")
-    }
     fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String {
         format!("{id}({})", arg_list.join(", "))
     }
-    fn gen_scope(&self, body: String) -> String {
-        format!("{{{body}}}")
+    fn render(block: &Block) -> String {
+        block.statements
+            .iter()
+            .map(|statement| Self::render_statement(&statement))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
-    fn gen_div_string(&self, numerator: String, divisor: String) -> String {
-        format!("{numerator}/{divisor}")
-    }
+}
 
+impl RustBackend {
     fn render_expr(expr: &Expr) -> String {
         match expr {
             Expr::Alloc { initial_value, shape } => {
@@ -99,14 +87,6 @@ impl Backend for RustBackend {
             }
             Statement::Return { value } => Self::render_expr(&value),
         }
-    }
-
-    fn render(block: &Block) -> String {
-        block.statements
-            .iter()
-            .map(|statement| Self::render_statement(&statement))
-            .collect::<Vec<_>>()
-            .join("\n")
     }
 }
 
