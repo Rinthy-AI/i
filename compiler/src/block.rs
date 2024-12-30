@@ -41,7 +41,7 @@ pub enum Statement {
     Loop {
         index: String,
         bound: String,
-        body: Vec<Statement>,
+        body: Block,
     },
     Return {
         value: Expr,

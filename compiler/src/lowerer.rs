@@ -188,12 +188,14 @@ pub fn lower(dep: &IndexExpr) -> Block {
             Statement::Loop {
                 index,
                 bound,
-                body,
+                body: Block {
+                    statements: body,
+                }
             }
         })
         .fold(op.clone(), |mut loop_stack, mut loop_| {
             if let Statement::Loop{ ref mut body, .. } = loop_ {
-                body.push(loop_stack);
+                body.statements.push(loop_stack);
             }
             loop_
         });
