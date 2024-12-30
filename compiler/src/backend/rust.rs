@@ -1,10 +1,10 @@
 use std::ops::{Index, IndexMut};
 
-use crate::backend::Backend;
+use crate::render::Render;
 use crate::block::{ Block, Expr, Statement };
 
 pub struct RustBackend;
-impl Backend for RustBackend {
+impl Render for RustBackend {
     fn gen_scope(&self, body: String) -> String {
         format!("{{{body}}}")
     }

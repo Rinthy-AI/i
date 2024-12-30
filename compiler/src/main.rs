@@ -3,6 +3,7 @@ mod backend;
 mod block;
 mod lowerer;
 mod parser;
+mod render;
 mod renderer;
 mod tokenizer;
 

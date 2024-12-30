@@ -1,9 +1,9 @@
 use crate::ast::{
     BinaryOp, Combinator, Expr, ExprBank, IndexExpr, NoOp, ScalarOp, Symbol, UnaryOp, AST,
 };
-use crate::backend::Backend;
 use crate::block::{Block, Expr as BlockExpr, Statement};
 use crate::lowerer::lower;
+use crate::render::Render;
 
 pub struct Renderer<B> {
     backend: B,
@@ -11,7 +11,7 @@ pub struct Renderer<B> {
     expr_bank: ExprBank,
 }
 
-impl<B: Backend> Renderer<B> {
+impl<B: Render> Renderer<B> {
     pub fn new(backend: B, ast: AST, expr_bank: ExprBank) -> Self {
         Self {
             backend,
