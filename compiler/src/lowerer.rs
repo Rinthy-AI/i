@@ -53,6 +53,12 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .map(|(dim, split)| (dim.clone(), 0))
         .collect();
 
+    let indexed_in_arrays = input_index_vecs
+        .iter()
+        .enumerate()
+        .map(|(ind, index)| Expr::Indexed { ident: format!("in{ind}"), index: index.clone() })
+        .collect();
+
     let accesses = input_index_vecs
         .iter()
         .map(|indices| Access {
@@ -169,6 +175,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
             ident: "out".to_string(),
             index: output_index_vec.clone(),
         },
+        indexed_in_arrays,
         statements,
         accesses,
         op,

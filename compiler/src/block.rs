@@ -46,6 +46,7 @@ pub enum Statement {
 #[derive(Clone, Debug)]
 pub struct Block {
     pub indexed_out_array: Expr,
+    pub indexed_in_arrays: Vec<Expr>,
     pub statements: Vec<Statement>,
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
