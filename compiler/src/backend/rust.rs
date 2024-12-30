@@ -65,10 +65,9 @@ impl Backend for RustBackend {
             Expr::ArrayDim {
                 input,
                 dim,
-            } => unimplemented!(),
-            Expr::Str(s) => unimplemented!(),
-            Expr::Int(i) => unimplemented!(),
-            Expr::Ident(i) => unimplemented!(),
+            } => format!("in{input}.shape[{dim}]"),
+            Expr::Str(s) | Expr::Ident(s) => s.to_string(),
+            Expr::Int(x) => format!("{x}"),
             Expr::Op {
                 op,
                 inputs,
