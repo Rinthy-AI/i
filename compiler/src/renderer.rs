@@ -120,9 +120,11 @@ impl<B: Backend> Renderer<B> {
 
         let mut loop_string = op_string;
         for l in n.loops.into_iter().rev() {
-            let mut bound = l.bound;
+            let Statement::Loop{ index, bound, index_reconstruction } = l.clone()
+            else { panic!("Found non-Loop Statement in loops") };
+            let mut bound = bound.clone();
 
-            if let Some((base_index, index_reconstruction_string)) = l.index_reconstruction {
+            if let Some((base_index, index_reconstruction_string)) = index_reconstruction {
                 let reconstruct_index_string = self
                     .backend
                     .get_var_declaration_string(base_index.clone(), index_reconstruction_string);
@@ -130,7 +132,7 @@ impl<B: Backend> Renderer<B> {
                 loop_string = format!("{reconstruct_index_string}\n{skip}\n{loop_string}");
             }
 
-            loop_string = self.backend.make_loop_string(l.index, bound, loop_string);
+            loop_string = self.backend.make_loop_string(index, bound, loop_string);
         }
 
         let return_string = self.backend.get_return_string("out".to_string());

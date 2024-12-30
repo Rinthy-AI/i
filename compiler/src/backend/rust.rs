@@ -93,6 +93,7 @@ impl Backend for RustBackend {
                 "let mut {ident} = {};",
                 Self::render_expr(value)
             ),
+            Statement::Loop{ .. } => unimplemented!(),
         }
     }
 }

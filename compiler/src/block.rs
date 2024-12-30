@@ -1,13 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug)]
-pub struct Loop {
-    pub index: String, // ident of Value::Uint iterator, e.g., `i`
-    pub bound: String, // ident of Value::ArrayDim, e.g., `ni`
-    pub index_reconstruction: Option<(String, String)>, // ident of Value
-}
-
-#[derive(Clone, Debug)]
 pub enum Expr {
     Alloc {
         initial_value: f32,
@@ -40,11 +33,16 @@ pub enum Statement {
         ident: String,
         value: Expr,
     },
+    Loop {
+        index: String,
+        bound: String,
+        index_reconstruction: Option<(String, String)>,
+    },
 }
 
 #[derive(Clone, Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
-    pub loops: Vec<Loop>,
+    pub loops: Vec<Statement>,
     pub op: Statement,
 }

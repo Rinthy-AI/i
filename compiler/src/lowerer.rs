@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Block, Expr, Loop, Statement};
+use crate::block::{Block, Expr, Statement};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
@@ -155,7 +155,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
                 None
             };
 
-            Loop {
+            Statement::Loop {
                 index,
                 bound,
                 index_reconstruction,
