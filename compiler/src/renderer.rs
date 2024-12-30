@@ -124,12 +124,13 @@ impl<B: Backend> Renderer<B> {
             else { panic!("Found non-Loop Statement in loops") };
             let mut bound = bound.clone();
 
-            if let Some((base_index, index_reconstruction_string)) = index_reconstruction {
-                let reconstruct_index_string = self
-                    .backend
-                    .get_var_declaration_string(base_index.clone(), index_reconstruction_string);
-                let skip = format!("if n{base_index} <= {base_index} {{ continue; }}");
-                loop_string = format!("{reconstruct_index_string}\n{skip}\n{loop_string}");
+            if let Some(statements) = index_reconstruction {
+                let (index_reconstruction, skip) = *statements; // deref Box
+                loop_string = format!(
+                    "{}\n{}\n{loop_string}",
+                    B::render_statement(&index_reconstruction),
+                    B::render_statement(&skip),
+                );
             }
 
             loop_string = self.backend.make_loop_string(index, bound, loop_string);

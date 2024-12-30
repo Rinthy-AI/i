@@ -165,13 +165,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
                     .collect::<Vec<_>>()
                     .join("");
 
-                Some((
-                    base_index.clone(),
-                    format!(
-                        "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
-                        n_loop_splits_total - 1
-                    )
-                ))
+                Some(Box::new((
+                    Statement::Declaration {
+                        ident: base_index.clone(),
+                        value: Expr::Str(format!(
+                            "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
+                            n_loop_splits_total - 1
+                        )),
+                    },
+                    Statement::Skip { index: base_index.clone(), bound: bound.clone() }
+                )))
             } else {
                 None
             };

@@ -33,10 +33,15 @@ pub enum Statement {
         ident: String,
         value: Expr,
     },
+    Skip {
+        // TODO: These should both probably be Expr (Ident)
+        index: String,
+        bound: String,
+    },
     Loop {
         index: String,
         bound: String,
-        index_reconstruction: Option<(String, String)>,
+        index_reconstruction: Option<Box<(Statement, Statement)>>, // Declaration, Skip
     },
 }
 
