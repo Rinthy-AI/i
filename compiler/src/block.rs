@@ -37,6 +37,7 @@ pub enum Expr {
     },
     Str(String),
     Int(i32),
+    Ident(String),
     Op {
         op: char,
         inputs: Vec<Expr>,

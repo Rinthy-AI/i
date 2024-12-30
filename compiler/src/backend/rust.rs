@@ -68,6 +68,7 @@ impl Backend for RustBackend {
             } => unimplemented!(),
             Expr::Str(s) => unimplemented!(),
             Expr::Int(i) => unimplemented!(),
+            Expr::Ident(i) => unimplemented!(),
             Expr::Op {
                 op,
                 inputs,
