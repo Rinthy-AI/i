@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Access, ArrayDim, Block, Expr, Loop, Statement, Value};
+use crate::block::{Access, ArrayDim, Block, Expr, Loop, Statement};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
@@ -60,7 +60,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         })
         .collect();
 
-    let mut values = HashMap::new();
     for index in &indices {
         // get iterator bound from index, e.g., `i` -> `ni`
         let bound = format!("n{index}");
@@ -174,7 +173,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         accesses,
         op,
         loops,
-        values,
         splits: HashMap::new(),
     }
 }

@@ -19,13 +19,6 @@ pub struct ArrayDim {
 }
 
 #[derive(Clone, Debug)]
-pub enum Value {
-    ArrayDim(ArrayDim), // size of array dimension, e.g., `ni`
-    Ident(String),      // an index variable, e.g., `i`
-    Int(i32),
-}
-
-#[derive(Clone, Debug)]
 pub enum Expr {
     Alloc {
         initial_value: f32,
@@ -63,6 +56,5 @@ pub struct Block {
     pub accesses: Vec<Access>,
     pub loops: Vec<Loop>,
     pub op: char, // this can't be a char forever
-    pub values: HashMap<String, Expr>,
     pub splits: HashMap<String, Vec<String>>, // from arraydim value to uint values
 }
