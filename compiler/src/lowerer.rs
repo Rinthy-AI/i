@@ -13,6 +13,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
     let (input_index_vecs, output_index_vec, op, initial_value) =
         dep.get_index_vecs_op_char_and_init_value();
 
+    let mut statements = vec![
+        Statement::Declaration {
+            ident: "out".to_string(),
+            value: Expr::Alloc {
+                initial_value,
+                shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
+            }
+        },
+    ];
+
     let indices: Vec<String> = input_index_vecs
         .iter()
         .flat_map(|v| v.iter())
@@ -157,15 +167,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
             ident: "out".to_string(),
             index: output_index_vec.clone(),
         },
-        statements: vec![
-            Statement::Declaration {
-                ident: "out".to_string(),
-                value: Expr::Alloc {
-                    initial_value,
-                    shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
-                }
-            },
-        ],
+        statements,
         accesses,
         op,
         loops,
