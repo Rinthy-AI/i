@@ -47,5 +47,4 @@ pub struct Block {
     pub statements: Vec<Statement>,
     pub loops: Vec<Loop>,
     pub op: Statement,
-    pub splits: HashMap<String, Vec<String>>, // from arraydim value to uint values
 }

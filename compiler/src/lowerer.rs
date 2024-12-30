@@ -188,7 +188,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
         statements,
         op,
         loops,
-        splits: HashMap::new(),
     }
 }
 
