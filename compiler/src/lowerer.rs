@@ -90,6 +90,27 @@ pub fn lower(dep: &IndexExpr) -> Block {
         }
     }
 
+    let indexed_out_expr = Expr::Indexed {
+        ident: "out".to_string(),
+        index: output_index_vec,
+    };
+
+    let partial_op_expr = Expr::Op {
+        op: op,
+        inputs: indexed_in_arrays,
+    };
+
+    let op = Statement::Assignment {
+        left: indexed_out_expr.clone(),
+        right: Expr::Op {
+            op: op,
+            inputs: vec![
+                indexed_out_expr,
+                partial_op_expr,
+            ],
+        },
+    };
+
     let loops = loop_order
         .iter()
         .map(|(index, rank)| {
@@ -162,27 +183,6 @@ pub fn lower(dep: &IndexExpr) -> Block {
             }
         })
         .collect();
-
-    let indexed_out_expr = Expr::Indexed {
-        ident: "out".to_string(),
-        index: output_index_vec,
-    };
-
-    let partial_op_expr = Expr::Op {
-        op: op,
-        inputs: indexed_in_arrays,
-    };
-
-    let op = Statement::Assignment {
-        left: indexed_out_expr.clone(),
-        right: Expr::Op {
-            op: op,
-            inputs: vec![
-                indexed_out_expr,
-                partial_op_expr,
-            ],
-        },
-    };
 
     Block {
         statements,
