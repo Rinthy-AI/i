@@ -87,6 +87,11 @@ impl Backend for RustBackend {
 
     fn render_statement(statement: &Statement) -> String {
         match statement {
+            Statement::Assignment { left, right } => format!(
+                "{} = {};",
+                Self::render_expr(left),
+                Self::render_expr(right)
+            ),
             Statement::Declaration{ ident, value } => format!(
                 "let mut {ident} = {};",
                 Self::render_expr(value)

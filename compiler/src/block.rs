@@ -32,10 +32,14 @@ pub enum Expr {
 
 #[derive(Clone, Debug)]
 pub enum Statement {
+    Assignment {
+        left: Expr, // Should LValue become it's own enum?
+        right: Expr,
+    },
     Declaration {
         ident: String,
         value: Expr,
-    }
+    },
 }
 
 #[derive(Clone, Debug)]
