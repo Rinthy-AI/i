@@ -4,5 +4,4 @@ pub mod block;
 pub mod lowerer;
 pub mod parser;
 pub mod render;
-pub mod renderer;
 pub mod tokenizer;

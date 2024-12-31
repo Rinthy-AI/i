@@ -5,32 +5,6 @@ use crate::block::{ Block, Expr, Statement };
 
 pub struct RustBackend;
 impl Render for RustBackend {
-    fn gen_scope(&self, body: String) -> String {
-        format!("{{{body}}}")
-    }
-    fn get_arg_declaration_string(&self, id: String) -> String {
-        format!("{}: Array", id)
-    }
-    fn get_return_type_string(&self) -> String {
-        "Array".to_string()
-    }
-    fn gen_block(
-        &self,
-        id: Option<String>,
-        args: Vec<String>,
-        return_: String,
-        body: String,
-    ) -> String {
-        let arg_list = args.join(", ");
-        let anon = format!("|{arg_list}| -> {return_} {{ {body} }}");
-        match id {
-            Some(id) => format!("let {id} = {anon};"),
-            None => format!("move {anon}"),
-        }
-    }
-    fn gen_call(&self, id: String, arg_list: &Vec<String>) -> String {
-        format!("{id}({})", arg_list.join(", "))
-    }
     fn render(block: &Block) -> String {
         block.statements
             .iter()

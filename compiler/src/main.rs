@@ -4,12 +4,11 @@ mod block;
 mod lowerer;
 mod parser;
 mod render;
-mod renderer;
 mod tokenizer;
 
 use crate::backend::rust::RustBackend;
+use crate::render::Render;
 use crate::parser::Parser;
-use crate::renderer::Renderer;
 
 use std::io::Read;
 use std::{env, fs, io, process::Command};
@@ -68,10 +67,23 @@ fn main() -> Result<(), String> {
 
     // Process the input
     let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
-    let backend = RustBackend {};
-    let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
-    let code = format!("fn main() {{ let f = {};}}", renderer.render().unwrap());
-    let formatted_code = format_rust_code(code);
+    assert_eq!(expr_bank.0.len(), 1);
+
+    // get IndexExpr
+    let crate::ast::Expr::Index(ref expr) = expr_bank.0[0]
+    else { panic!("expression is not of variant Index") };
+
+    // lower
+    let block = lowerer::lower(&expr);
+
+    let formatted_code = RustBackend::render(&block);
+
+    //let formatted_code = format!("{:#?}", block);
+
+    //let backend = RustBackend {};
+    //let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
+    //let code = format!("fn main() {{ let f = {};}}", renderer.render().unwrap());
+    //let formatted_code = format_rust_code(code);
 
     // Write output
     if let Some(path) = output_path {
