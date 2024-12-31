@@ -77,7 +77,7 @@ fn main() -> Result<(), String> {
     let block = lowerer::lower(&expr);
 
     let code = RustBackend::render(&block);
-    let formatted_code = format_rust_code(code);
+    let formatted_code = format_rust_code(format!("fn main() {{ let f = {code};}}"));
 
     //let formatted_code = format!("{:#?}", block);
 

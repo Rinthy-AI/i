@@ -4,19 +4,17 @@ use macros::i;
 fn main() {
     // matrix multiplication kernel
     let mm = i!(
-        m: ik*kj~ijk
-        a: +ijk~ij
-        m.a
+        ij+ij~ij
     );
 
     let mut x = Array::new(vec![2, 2], 0.);
     let mut y = Array::new(vec![2, 2], 0.);
 
     // 90-degree counterclockwise rotation matrix
-    x[&[0, 0]] = 0.;
-    x[&[0, 1]] = -1.;
+    x[&[0, 0]] = 1.;
+    x[&[0, 1]] = 1.;
     x[&[1, 0]] = 1.;
-    x[&[1, 1]] = 0.;
+    x[&[1, 1]] = 1.;
 
     // some other matrix
     y[&[0, 0]] = 1.;

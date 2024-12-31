@@ -59,8 +59,10 @@ impl RustBackend {
             Statement::Loop{ index, bound, body } => {
                 format!("for {index} in 0..{bound} {{ {} }}", Self::render(body))
             }
+
             Statement::Function{ ident, type_, args, body } => format!(
-                "fn {ident}({}) -> {type_} {{{}}}",
+                //"fn {ident}({}) -> {type_} {{{}}}",
+                "|{}| -> {type_} {{{}}}",
                 args
                     .iter()
                     .map(|Arg{ type_, ident }| format!("{ident}: {type_}"))
