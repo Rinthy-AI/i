@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use crate::render::Render;
-use crate::block::{ Block, Expr, Statement };
+use crate::block::{ Arg, Block, Expr, Statement };
 
 pub struct RustBackend;
 impl Render for RustBackend {
@@ -59,6 +59,15 @@ impl RustBackend {
             Statement::Loop{ index, bound, body } => {
                 format!("for {index} in 0..{bound} {{ {} }}", Self::render(body))
             }
+            Statement::Function{ ident, type_, args, body } => format!(
+                "fn {ident}({}) -> {type_} {{{}}}",
+                args
+                    .iter()
+                    .map(|Arg{ type_, ident }| format!("{ident}: {type_}"))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                Self::render(&body),
+            ),
             Statement::Return { value } => Self::render_expr(&value),
         }
     }

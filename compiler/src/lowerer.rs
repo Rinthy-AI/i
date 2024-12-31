@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Block, Expr, Statement};
+use crate::block::{Arg, Block, Expr, Statement};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
@@ -204,7 +204,18 @@ pub fn lower(dep: &IndexExpr) -> Block {
     statements.push(Statement::Return { value: Expr::Ident("out".to_string()) });
 
     Block {
-        statements,
+        statements: vec![
+            Statement::Function{
+                ident: "f".to_string(),
+                type_: "Array".to_string(),
+                args: (0..input_index_vecs.len())
+                    .map(|ind| Arg { type_: "Array".to_string(), ident: format!("in{ind}")})
+                    .collect(),
+                body: Block {
+                    statements,
+                }
+            }
+        ],
     }
 }
 

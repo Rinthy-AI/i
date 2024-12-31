@@ -23,6 +23,13 @@ pub enum Expr {
     }
 }
 
+// Should this be an Expr variant?
+#[derive(Clone, Debug)]
+pub struct Arg {
+    pub type_: String,
+    pub ident: String,
+}
+
 #[derive(Clone, Debug)]
 pub enum Statement {
     Assignment {
@@ -45,7 +52,13 @@ pub enum Statement {
     },
     Return {
         value: Expr,
-    }
+    },
+    Function {
+        ident: String,
+        type_: String, // return type
+        args: Vec<Arg>, // type, ident
+        body: Block,
+    },
 }
 
 #[derive(Clone, Debug)]
