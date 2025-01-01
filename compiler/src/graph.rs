@@ -14,6 +14,15 @@ pub enum Node {
 }
 
 impl Node {
+    pub fn get_leaves(&self) -> Vec<&Node> {
+        match self {
+            Node::Leaf { .. } => vec![self],
+            Node::Interior { children, .. } => children
+                .iter()
+                .flat_map(|child| child.get_leaves())
+                .collect(),
+        }
+    }
     pub fn get_leaves_mut(&mut self) -> Vec<&mut Node> {
         match self {
             Node::Leaf { .. } => vec![self],
@@ -32,8 +41,8 @@ pub struct Graph {
 }
 
 impl Graph {
-    //pub fn get_leaves(&self) -> Vec<&Node> {
-    //    self.root.get_leaves()
-    //}
+    pub fn get_leaves(&self) -> Vec<&Node> {
+        self.root.get_leaves()
+    }
 }
 
