@@ -1,6 +1,8 @@
 mod ast;
 mod backend;
 mod block;
+mod graph;
+mod grapher;
 mod lowerer;
 mod parser;
 mod render;
