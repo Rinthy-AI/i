@@ -2,16 +2,21 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
 use crate::block::{Arg, Block, Expr, Statement, Type};
+use crate::graph::{ Graph, Node };
 
-pub fn lower(dep: &IndexExpr) -> Block {
-    let IndexExpr {
-        op: scalar_op,
-        out: result_index,
-        schedule: Schedule { splits, loop_order },
-    } = dep;
+pub fn lower(graph: &Graph) -> Block {
+    let Graph {
+        root: Node::Interior {
+            index: result_index,
+            op: scalar_op,
+            children,
+            schedule: Schedule { splits, loop_order },
+        }
+    } = graph else { panic!("Root node in graph was not of variant `Interior`") };
 
-    let (input_index_vecs, output_index_vec, op, initial_value) =
-        dep.get_index_vecs_op_char_and_init_value();
+    let (input_index_vecs, op, initial_value) =
+        scalar_op.get_index_vecs_op_char_and_init_value();
+    let output_index_vec = split_index_string(&result_index);
 
     let mut statements = Vec::new();
 
@@ -274,4 +279,8 @@ impl Symbol {
     fn array_index_strings(&self) -> Vec<String> {
         self.0.chars().map(|c| c.to_string()).collect()
     }
+}
+
+fn split_index_string(s: &String) -> Vec<String> {
+    s.chars().map(|c| c.to_string()).collect()
 }

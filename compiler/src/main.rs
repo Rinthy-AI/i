@@ -69,7 +69,7 @@ fn main() -> Result<(), String> {
 
     // Process the input
     let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
-    assert_eq!(expr_bank.0.len(), 1);
+    let graph = grapher::graph(&expr_bank);
 
     // get IndexExpr
     let crate::ast::Expr::Index(ref expr) = expr_bank.0[0] else {
@@ -77,7 +77,7 @@ fn main() -> Result<(), String> {
     };
 
     // lower
-    let block = lowerer::lower(&expr);
+    let block = lowerer::lower(&graph);
 
     let code = RustBackend::render(&block);
     let formatted_code = format_rust_code(format!("fn main() {{ let f = {code};}}"));
