@@ -5,14 +5,33 @@ use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::graph::{ Graph, Node };
 
 pub fn lower(graph: &Graph) -> Block {
-    let Graph {
-        root: Node::Interior {
-            index: result_index,
-            op: scalar_op,
-            children,
-            schedule: Schedule { splits, loop_order },
-        }
-    } = graph else { panic!("Root node in graph was not of variant `Interior`") };
+    let Graph { root: node } = graph;
+
+    let mut block = lower_node(node);
+    block.statements.push(Statement::Return { value: Expr::Ident("out".to_string()) });
+
+    Block {
+        statements: vec![
+            Statement::Function{
+                ident: "f".to_string(),
+                type_: Type::Array,
+                args: (0..graph.get_leaves().len())
+                    .map(|ind| Arg { type_: Type::Array, ident: format!("in{ind}")})
+                    .collect(),
+                body: block,
+            }
+        ],
+    }
+}
+
+fn lower_node(node: &Node) -> Block {
+    let Node::Interior {
+        index: result_index,
+        op: scalar_op,
+        children,
+        schedule: Schedule { splits, loop_order },
+    } = node
+    else { panic!("Root node in graph was not of variant `Interior`") };
 
     let (input_index_vecs, op, initial_value) =
         scalar_op.get_index_vecs_op_char_and_init_value();
@@ -206,22 +225,9 @@ pub fn lower(graph: &Graph) -> Block {
         });
 
     statements.push(loop_stack);
-    statements.push(Statement::Return {
-        value: Expr::Ident("out".to_string()),
-    });
 
     Block {
-        statements: vec![Statement::Function {
-            ident: "f".to_string(),
-            type_: Type::Array,
-            args: (0..input_index_vecs.len())
-                .map(|ind| Arg {
-                    type_: Type::Array,
-                    ident: format!("in{ind}"),
-                })
-                .collect(),
-            body: Block { statements },
-        }],
+        statements,
     }
 }
 
