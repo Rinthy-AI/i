@@ -1,3 +1,5 @@
+use crate::ast::{ ScalarOp, Schedule };
+
 #[derive(Clone, Debug)]
 pub enum Node {
     Leaf{
@@ -5,8 +7,9 @@ pub enum Node {
     },
     Interior {
         index: String,
-        op: char,
+        op: ScalarOp,
         children: Vec<Node>,
+        schedule: Schedule,
     }
 }
 
