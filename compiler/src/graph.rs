@@ -5,6 +5,7 @@ pub enum Node {
     },
     Interior {
         index: String,
+        op: char,
         children: Vec<Node>,
     }
 }
