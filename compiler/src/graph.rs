@@ -23,6 +23,7 @@ impl Node {
                 .collect(),
         }
     }
+
     pub fn get_leaves_mut(&mut self) -> Vec<&mut Node> {
         match self {
             Node::Leaf { .. } => vec![self],
@@ -30,6 +31,12 @@ impl Node {
                 .iter_mut()
                 .flat_map(|child| child.get_leaves_mut())
                 .collect(),
+        }
+    }
+
+    pub fn index(&self) -> String {
+        match self {
+            Self::Leaf { index, .. } | Self::Interior { index, .. } => index.to_string(),
         }
     }
 }
