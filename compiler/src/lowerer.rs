@@ -26,36 +26,17 @@ impl Lowerer {
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
         //println!("{:#?}", graph);
-        let mut bound_counter = 0;
-        let mut iterator_counter = 0;
-        let mut store_counter = 0;
-        self.lower_node(&graph.root, bound_counter, iterator_counter, store_counter)
+        self.lower_node(&graph.root)
     }
 
-    fn lower_node(
-        &mut self,
-        node: &Node,
-        mut bound_counter: usize,
-        mut iterator_counter: usize,
-        mut store_counter: usize,
-    ) -> Block {
+    fn lower_node(&mut self, node: &Node) -> Block {
         match node {
-            Node::Leaf { .. } => {
-                self.lower_leaf_node(node, bound_counter, iterator_counter, store_counter)
-            }
-            Node::Interior { .. } => {
-                self.lower_interior_node(node, bound_counter, iterator_counter, store_counter)
-            }
+            Node::Leaf { .. } => self.lower_leaf_node(node),
+            Node::Interior { .. } => self.lower_interior_node(node),
         }
     }
 
-    fn lower_leaf_node(
-        &mut self,
-        node: &Node,
-        mut bound_counter: usize,
-        mut iterator_counter: usize,
-        mut store_counter: usize,
-    ) -> Block {
+    fn lower_leaf_node(&mut self, node: &Node) -> Block {
         let Node::Leaf { index } = node else {
             panic!("Expected leaf node.")
         };
@@ -63,13 +44,7 @@ impl Lowerer {
         Block { statements: vec![] }
     }
 
-    fn lower_interior_node(
-        &mut self,
-        node: &Node,
-        mut bound_counter: usize,
-        mut iterator_counter: usize,
-        mut store_counter: usize,
-    ) -> Block {
+    fn lower_interior_node(&mut self, node: &Node) -> Block {
         // NOTES:
         // - Each node determines the bounds for its input indices only (?)
 
@@ -104,13 +79,13 @@ impl Lowerer {
         let mut bound_idents = HashMap::<String, String>::new();
         let mut base_iterator_idents = HashMap::<String, String>::new();
         for (ind, index) in indices.iter().enumerate() {
-            bound_idents.insert(index.clone(), format!("b{}", ind + bound_counter));
-            base_iterator_idents.insert(index.clone(), format!("i{}", ind + bound_counter));
+            bound_idents.insert(index.clone(), format!("b{}", ind + self.bound_counter));
+            base_iterator_idents.insert(index.clone(), format!("i{}", ind + self.iterator_counter));
         }
-        let store_ident = format!("s{store_counter}");
-        bound_counter += bound_idents.len();
-        iterator_counter += base_iterator_idents.len();
-        store_counter += 1;
+        let store_ident = format!("s{}", self.store_counter);
+        self.bound_counter += bound_idents.len();
+        self.iterator_counter += base_iterator_idents.len();
+        self.store_counter += 1;
 
         println!("{:#?}", bound_idents);
         println!("{:#?}", base_iterator_idents);
