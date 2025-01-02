@@ -4,6 +4,12 @@ use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp}
 use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::graph::{Graph, Node};
 
+// NOTES:
+// - Each interior node has bounds for its outputs named by its caller. It is
+//   responsible for naming bounds for any remaining unnamed inputs.
+// - Each leaf node is responsible for creating the declarations based on the
+//   names it is given.
+
 pub struct Lowerer {
     input_counter: usize,
     bound_counter: usize,
@@ -26,8 +32,30 @@ impl Lowerer {
         }
     }
 
+    fn get_atomic_indices(index: &String) -> Vec<String> {
+        let mut indices: Vec<String> = index
+            .chars()
+            .map(|c| c.to_string())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        indices.sort();
+        indices
+    }
+
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        //println!("{:#?}", graph.root.index());
+        let indices = Self::get_atomic_indices(&graph.root.index());
+
+        let mut bound_idents = HashMap::<String, String>::new();
+        for (ind, index) in indices.iter().enumerate() {
+            bound_idents.insert(index.clone(), format!("b{}", ind + self.bound_counter));
+        }
+        self.bound_counter += bound_idents.len();
+
+        println!("{:#?}", bound_idents);
+
+        //let x = &graph.root.index().chars()
+
         self.lower_node(&graph.root)
     }
 
@@ -62,9 +90,6 @@ impl Lowerer {
     }
 
     fn lower_interior_node(&mut self, node: &Node) -> Block {
-        // NOTES:
-        // - Each node determines the bounds for its input indices only (?)
-
         let Node::Interior {
             index,
             op,
@@ -103,8 +128,6 @@ impl Lowerer {
         self.bound_counter += bound_idents.len();
         self.iterator_counter += base_iterator_idents.len();
         self.store_counter += 1;
-
-        println!("{:#?}", schedule.loop_order);
 
         // determine splits
 
