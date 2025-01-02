@@ -5,6 +5,7 @@ use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::graph::{Graph, Node};
 
 pub struct Lowerer {
+    input_counter: usize,
     bound_counter: usize,
     iterator_counter: usize,
     store_counter: usize,
@@ -18,6 +19,7 @@ pub fn lower(graph: &Graph) -> Block {
 impl Lowerer {
     pub fn new() -> Self {
         Lowerer {
+            input_counter: 0,
             bound_counter: 0,
             iterator_counter: 0,
             store_counter: 0,
@@ -25,21 +27,36 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        //println!("{:#?}", graph);
+        //println!("{:#?}", graph.root.index());
         self.lower_node(&graph.root)
     }
 
     fn lower_node(&mut self, node: &Node) -> Block {
         match node {
-            Node::Leaf { .. } => self.lower_leaf_node(node),
+            Node::Leaf { .. } => self.lower_leaf_node(node, &vec![]),
             Node::Interior { .. } => self.lower_interior_node(node),
         }
     }
 
-    fn lower_leaf_node(&mut self, node: &Node) -> Block {
+    fn lower_leaf_node(&mut self, node: &Node, bound_idents: &Vec<(String, usize)>) -> Block {
         let Node::Leaf { index } = node else {
             panic!("Expected leaf node.")
         };
+
+        let statements =
+            bound_idents
+                .iter()
+                .enumerate()
+                .map(|(ind, (ident, dim))| Statement::Declaration {
+                    ident: ident.clone(),
+                    value: Expr::ArrayDim {
+                        ident: format!("in{}", ind + self.input_counter),
+                        dim: *dim,
+                    },
+                    type_: Type::Int,
+                });
+
+        self.input_counter += bound_idents.len();
 
         Block { statements: vec![] }
     }
@@ -87,9 +104,7 @@ impl Lowerer {
         self.iterator_counter += base_iterator_idents.len();
         self.store_counter += 1;
 
-        println!("{:#?}", bound_idents);
-        println!("{:#?}", base_iterator_idents);
-        println!("{:#?}", store_ident);
+        println!("{:#?}", schedule.loop_order);
 
         // determine splits
 
