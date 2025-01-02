@@ -54,40 +54,41 @@ impl Lowerer {
             .map(|c| bound_idents[&c].clone())
             .collect();
 
-        self.lower_node(&graph.root)
+        self.lower_node(&graph.root, output_bound_idents)
     }
 
-    fn lower_node(&mut self, node: &Node) -> Block {
+    fn lower_node(&mut self, node: &Node, output_bound_idents: Vec<String>) -> Block {
         match node {
-            Node::Leaf { .. } => self.lower_leaf_node(node, &vec![]),
-            Node::Interior { .. } => self.lower_interior_node(node),
+            Node::Leaf { .. } => self.lower_leaf_node(node, output_bound_idents),
+            Node::Interior { .. } => self.lower_interior_node(node, output_bound_idents),
         }
     }
 
-    fn lower_leaf_node(&mut self, node: &Node, bound_idents: &Vec<(String, usize)>) -> Block {
+    fn lower_leaf_node(&mut self, node: &Node, output_bound_idents: Vec<String>) -> Block {
         let Node::Leaf { index } = node else {
             panic!("Expected leaf node.")
         };
 
         let statements =
-            bound_idents
+            output_bound_idents
                 .iter()
                 .enumerate()
-                .map(|(ind, (ident, dim))| Statement::Declaration {
+                .map(|(dim, ident)| Statement::Declaration {
                     ident: ident.clone(),
                     value: Expr::ArrayDim {
-                        ident: format!("in{}", ind + self.input_counter),
-                        dim: *dim,
+                        ident: format!("in{}", self.input_counter),
+                        dim: dim,
                     },
                     type_: Type::Int,
                 });
 
-        self.input_counter += bound_idents.len();
+        self.input_counter += 1;
+        self.bound_counter += output_bound_idents.len();
 
         Block { statements: vec![] }
     }
 
-    fn lower_interior_node(&mut self, node: &Node) -> Block {
+    fn lower_interior_node(&mut self, node: &Node, output_bound_idents: Vec<String>) -> Block {
         let Node::Interior {
             index,
             op,
@@ -98,32 +99,35 @@ impl Lowerer {
             panic!("Expected interior node.")
         };
 
-        let indexes = [
-            children
-                .iter()
-                .map(|child| child.index())
-                .collect::<Vec<_>>(),
-            vec![index.to_string()],
-        ]
-        .concat();
-
-        let mut indices = indexes
+        // insert output_bound_idents into table first
+        let output_char_indices = Self::get_char_indices(&node.index());
+        let mut bound_idents: HashMap<char, String> = output_char_indices
             .iter()
-            .flat_map(|index| index.chars().map(|c| c.to_string()))
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        indices.sort();
+            .zip(output_bound_idents.iter())
+            .map(|(char_index, bound_ident)| (*char_index, bound_ident.clone()))
+            .collect();
+
+        // create and insert input bound idents into table (not overwriting existing idents)
+        for (ind, char_index) in children
+            .iter()
+            .map(|child| child.index())
+            .flat_map(|index| index.chars().collect::<Vec<_>>())
+            .enumerate()
+        {
+            bound_idents.entry(char_index).or_insert_with(|| {
+                self.bound_counter += 1;
+                format!("b{}", self.bound_counter)
+            });
+        }
+
+        let indices: Vec<String> = vec![]; // TODO: remove
 
         // create idents for bounds, base iterators (splits to be affixed with `_{ind}`), and store
-        let mut bound_idents = HashMap::<String, String>::new();
         let mut base_iterator_idents = HashMap::<String, String>::new();
         for (ind, index) in indices.iter().enumerate() {
-            bound_idents.insert(index.clone(), format!("b{}", ind + self.bound_counter));
             base_iterator_idents.insert(index.clone(), format!("i{}", ind + self.iterator_counter));
         }
         let store_ident = format!("s{}", self.store_counter);
-        self.bound_counter += bound_idents.len();
         self.iterator_counter += base_iterator_idents.len();
         self.store_counter += 1;
 
