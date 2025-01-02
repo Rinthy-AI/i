@@ -83,7 +83,6 @@ impl Lowerer {
                 });
 
         self.input_counter += 1;
-        self.bound_counter += output_bound_idents.len();
 
         Block { statements: vec![] }
     }
@@ -115,18 +114,23 @@ impl Lowerer {
             .enumerate()
         {
             bound_idents.entry(char_index).or_insert_with(|| {
+                let ident = format!("b{}", self.bound_counter);
                 self.bound_counter += 1;
-                format!("b{}", self.bound_counter)
+                ident
             });
         }
 
         let indices: Vec<String> = vec![]; // TODO: remove
 
-        // create idents for bounds, base iterators (splits to be affixed with `_{ind}`), and store
-        let mut base_iterator_idents = HashMap::<String, String>::new();
-        for (ind, index) in indices.iter().enumerate() {
-            base_iterator_idents.insert(index.clone(), format!("i{}", ind + self.iterator_counter));
-        }
+        // create idents for base iterators (splits to be affixed with `_{ind}`)
+        let base_iterator_idents: HashMap<char, String> = bound_idents
+            .keys()
+            .enumerate()
+            .map(|(ind, char_index)| (*char_index, format!("i{}", ind + self.iterator_counter)))
+            .collect();
+        self.iterator_counter += base_iterator_idents.len();
+
+        // create ident for  store
         let store_ident = format!("s{}", self.store_counter);
         self.iterator_counter += base_iterator_idents.len();
         self.store_counter += 1;
