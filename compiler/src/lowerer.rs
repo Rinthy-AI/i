@@ -41,6 +41,12 @@ impl Lowerer {
     pub fn lower(&mut self, graph: &Graph) -> Block {
         let indices = Self::get_char_indices(&graph.root.index());
 
+        // TODO: output store should also be handled here since it needs to exist for
+        //       current node to "call" (use) it
+
+        // create ident for store
+        let store_ident = format!("out");
+
         let mut bound_idents = HashMap::<char, String>::new();
         for (ind, index) in indices.iter().enumerate() {
             bound_idents.insert(*index, format!("b{}", ind + self.bound_counter));
@@ -54,20 +60,36 @@ impl Lowerer {
             .map(|c| bound_idents[&c].clone())
             .collect();
 
-        self.lower_node(&graph.root, output_bound_idents)
+        self.lower_node(&graph.root, output_bound_idents, store_ident)
     }
 
-    fn lower_node(&mut self, node: &Node, output_bound_idents: Vec<String>) -> Block {
+    fn lower_node(
+        &mut self,
+        node: &Node,
+        output_bound_idents: Vec<String>,
+        store_ident: String,
+    ) -> Block {
         match node {
-            Node::Leaf { .. } => self.lower_leaf_node(node, output_bound_idents),
-            Node::Interior { .. } => self.lower_interior_node(node, output_bound_idents),
+            Node::Leaf { .. } => self.lower_leaf_node(node, output_bound_idents, store_ident),
+            Node::Interior { .. } => {
+                self.lower_interior_node(node, output_bound_idents, store_ident)
+            }
         }
     }
 
-    fn lower_leaf_node(&mut self, node: &Node, output_bound_idents: Vec<String>) -> Block {
+    fn lower_leaf_node(
+        &mut self,
+        node: &Node,
+        output_bound_idents: Vec<String>,
+        store_ident: String,
+    ) -> Block {
         let Node::Leaf { index } = node else {
             panic!("Expected leaf node.")
         };
+
+        // TODO: maybe create a statement to alias this? alternative is use store_ident in
+        //       arg list
+        //format!("in{}", self.input_counter)
 
         let statements =
             output_bound_idents
@@ -76,7 +98,7 @@ impl Lowerer {
                 .map(|(dim, ident)| Statement::Declaration {
                     ident: ident.clone(),
                     value: Expr::ArrayDim {
-                        ident: format!("in{}", self.input_counter),
+                        ident: store_ident.clone(),
                         dim: dim,
                     },
                     type_: Type::Int,
@@ -87,7 +109,12 @@ impl Lowerer {
         Block { statements: vec![] }
     }
 
-    fn lower_interior_node(&mut self, node: &Node, output_bound_idents: Vec<String>) -> Block {
+    fn lower_interior_node(
+        &mut self,
+        node: &Node,
+        output_bound_idents: Vec<String>,
+        store_ident: String,
+    ) -> Block {
         let Node::Interior {
             index,
             op,
@@ -130,12 +157,19 @@ impl Lowerer {
             .collect();
         self.iterator_counter += base_iterator_idents.len();
 
-        // create ident for  store
-        let store_ident = format!("s{}", self.store_counter);
-        self.iterator_counter += base_iterator_idents.len();
-        self.store_counter += 1;
+        // create store ident for each child
+        let store_idents: Vec<String> = children
+            .iter()
+            .enumerate()
+            .map(|(ind, child)| format!("s{}", ind + self.store_counter))
+            .collect();
+        self.store_counter += store_idents.len();
 
         // determine splits
+
+        //let Self::create_op_statement(op, );
+
+        println!("{:#?}", store_idents);
 
         Block { statements: vec![] }
     }
