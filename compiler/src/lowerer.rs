@@ -2,39 +2,68 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
 use crate::block::{Arg, Block, Expr, Statement, Type};
-use crate::graph::{ Graph, Node };
+use crate::graph::{Graph, Node};
 
 pub fn lower(graph: &Graph) -> Block {
     let Graph { root: node } = graph;
 
     let mut block = lower_node(node);
-    block.statements.push(Statement::Return { value: Expr::Ident("out".to_string()) });
+    block.statements.push(Statement::Return {
+        value: Expr::Ident("out".to_string()),
+    });
 
     Block {
-        statements: vec![
-            Statement::Function{
-                ident: "f".to_string(),
-                type_: Type::Array,
-                args: (0..graph.get_leaves().len())
-                    .map(|ind| Arg { type_: Type::Array, ident: format!("in{ind}")})
-                    .collect(),
-                body: block,
-            }
-        ],
+        statements: vec![Statement::Function {
+            ident: "f".to_string(),
+            type_: Type::Array,
+            args: (0..graph.get_leaves().len())
+                .map(|ind| Arg {
+                    type_: Type::Array,
+                    ident: format!("in{ind}"),
+                })
+                .collect(),
+            body: block,
+        }],
     }
 }
 
 fn lower_node(node: &Node) -> Block {
+    match node {
+        Node::Leaf { .. } => lower_leaf_node(node, vec![]),
+        Node::Interior { .. } => lower_interior_node(node, vec![]),
+    }
+}
+
+fn lower_leaf_node(node: &Node, bounds_by_dim: Vec<String>) -> Block {
+    // This function just sets the bounds variables.
+    Block {
+        statements: bounds_by_dim
+            .iter()
+            .enumerate()
+            .map(|(ind, bound_ident)| Statement::Declaration {
+                ident: bound_ident.to_string(),
+                value: Expr::ArrayDim {
+                    ident: format!("todo: track total args across graph"),
+                    dim: ind,
+                },
+                type_: Type::Int,
+            })
+            .collect(),
+    }
+}
+
+fn lower_interior_node(node: &Node, bounds_by_dim: Vec<String>) -> Block {
     let Node::Interior {
         index: result_index,
         op: scalar_op,
         children,
         schedule: Schedule { splits, loop_order },
     } = node
-    else { panic!("Root node in graph was not of variant `Interior`") };
+    else {
+        panic!("Root node in graph was not of variant `Interior`")
+    };
 
-    let (input_index_vecs, op, initial_value) =
-        scalar_op.get_index_vecs_op_char_and_init_value();
+    let (input_index_vecs, op, initial_value) = scalar_op.get_index_vecs_op_char_and_init_value();
     let output_index_vec = split_index_string(&result_index);
 
     let mut statements = Vec::new();
@@ -226,9 +255,7 @@ fn lower_node(node: &Node) -> Block {
 
     statements.push(loop_stack);
 
-    Block {
-        statements,
-    }
+    Block { statements }
 }
 
 impl IndexExpr {

@@ -1,16 +1,16 @@
-use crate::ast::{ ScalarOp, Schedule };
+use crate::ast::{ScalarOp, Schedule};
 
 #[derive(Clone, Debug)]
 pub enum Node {
-    Leaf{
-        index: String
+    Leaf {
+        index: String,
     },
     Interior {
         index: String,
         op: ScalarOp,
         children: Vec<Node>,
         schedule: Schedule,
-    }
+    },
 }
 
 impl Node {
@@ -34,7 +34,6 @@ impl Node {
     }
 }
 
-
 #[derive(Clone, Debug)]
 pub struct Graph {
     pub root: Node,
@@ -45,4 +44,3 @@ impl Graph {
         self.root.get_leaves()
     }
 }
-
