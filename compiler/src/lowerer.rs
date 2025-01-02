@@ -32,29 +32,27 @@ impl Lowerer {
         }
     }
 
-    fn get_atomic_indices(index: &String) -> Vec<String> {
-        let mut indices: Vec<String> = index
-            .chars()
-            .map(|c| c.to_string())
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
+    fn get_char_indices(index: &String) -> Vec<char> {
+        let mut indices: Vec<char> = index.chars().collect::<HashSet<_>>().into_iter().collect();
         indices.sort();
         indices
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let indices = Self::get_atomic_indices(&graph.root.index());
+        let indices = Self::get_char_indices(&graph.root.index());
 
-        let mut bound_idents = HashMap::<String, String>::new();
+        let mut bound_idents = HashMap::<char, String>::new();
         for (ind, index) in indices.iter().enumerate() {
-            bound_idents.insert(index.clone(), format!("b{}", ind + self.bound_counter));
+            bound_idents.insert(*index, format!("b{}", ind + self.bound_counter));
         }
         self.bound_counter += bound_idents.len();
 
-        println!("{:#?}", bound_idents);
-
-        //let x = &graph.root.index().chars()
+        let output_bound_idents: Vec<String> = graph
+            .root
+            .index()
+            .chars()
+            .map(|c| bound_idents[&c].clone())
+            .collect();
 
         self.lower_node(&graph.root)
     }
