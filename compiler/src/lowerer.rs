@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
-use crate::block::{Arg, Block, Expr, Statement};
+use crate::block::{Arg, Block, Expr, Statement, Type};
 
 pub fn lower(dep: &IndexExpr) -> Block {
     let IndexExpr {
@@ -26,10 +26,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
         .collect();
 
     let loop_order = if loop_order.is_empty() {
-        &indices
-            .iter()
-            .map(|index| (index.clone(), 0))
-            .collect()
+        &indices.iter().map(|index| (index.clone(), 0)).collect()
     } else {
         loop_order
     };
@@ -40,15 +37,16 @@ pub fn lower(dep: &IndexExpr) -> Block {
     }
 
     // for counting the loop splits processed so far
-    let mut split_counter: HashMap<String, usize> = splits
-        .iter()
-        .map(|(dim, split)| (dim.clone(), 0))
-        .collect();
+    let mut split_counter: HashMap<String, usize> =
+        splits.iter().map(|(dim, split)| (dim.clone(), 0)).collect();
 
     let indexed_in_arrays: Vec<_> = input_index_vecs
         .iter()
         .enumerate()
-        .map(|(ind, index)| Expr::Indexed { ident: format!("in{ind}"), index: index.clone() })
+        .map(|(ind, index)| Expr::Indexed {
+            ident: format!("in{ind}"),
+            index: index.clone(),
+        })
         .collect();
 
     for index in &indices {
@@ -70,27 +68,31 @@ pub fn lower(dep: &IndexExpr) -> Block {
         let (input_ind, dim) = flattened[0]; // TODO: What if this fails?
         statements.push(Statement::Declaration {
             ident: bound,
-            value: Expr::ArrayDim{ ident: format!("in{input_ind}"), dim }
+            value: Expr::ArrayDim {
+                ident: format!("in{input_ind}"),
+                dim,
+            },
+            type_: Type::Int,
         });
         if let Some(split_factors) = splits.get(index) {
             for (ind, factor) in split_factors.iter().enumerate() {
                 statements.push(Statement::Declaration {
                     ident: format!("n{index}{ind}"),
                     value: Expr::Int(*factor),
+                    type_: Type::Int,
                 });
             }
         }
     }
 
-    statements.push(
-        Statement::Declaration {
-            ident: "out".to_string(),
-            value: Expr::Alloc {
-                initial_value,
-                shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
-            }
-        }
-    );
+    statements.push(Statement::Declaration {
+        ident: "out".to_string(),
+        value: Expr::Alloc {
+            initial_value,
+            shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
+        },
+        type_: Type::Array,
+    });
 
     let indexed_out_expr = Expr::Indexed {
         ident: "out".to_string(),
@@ -106,10 +108,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
         left: indexed_out_expr.clone(),
         right: Expr::Op {
             op: op,
-            inputs: vec![
-                indexed_out_expr,
-                partial_op_expr,
-            ],
+            inputs: vec![indexed_out_expr, partial_op_expr],
         },
     };
 
@@ -175,6 +174,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
                             "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
                             n_loop_splits_total - 1
                         )),
+                        type_: Type::Int,
                     },
                     Statement::Skip {
                         index: base_index.clone(),
@@ -201,21 +201,22 @@ pub fn lower(dep: &IndexExpr) -> Block {
         });
 
     statements.push(loop_stack);
-    statements.push(Statement::Return { value: Expr::Ident("out".to_string()) });
+    statements.push(Statement::Return {
+        value: Expr::Ident("out".to_string()),
+    });
 
     Block {
-        statements: vec![
-            Statement::Function{
-                ident: "f".to_string(),
-                type_: "Array".to_string(),
-                args: (0..input_index_vecs.len())
-                    .map(|ind| Arg { type_: "Array".to_string(), ident: format!("in{ind}")})
-                    .collect(),
-                body: Block {
-                    statements,
-                }
-            }
-        ],
+        statements: vec![Statement::Function {
+            ident: "f".to_string(),
+            type_: Type::Array,
+            args: (0..input_index_vecs.len())
+                .map(|ind| Arg {
+                    type_: Type::Array,
+                    ident: format!("in{ind}"),
+                })
+                .collect(),
+            body: Block { statements },
+        }],
     }
 }
 

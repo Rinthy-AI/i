@@ -7,8 +7,8 @@ mod render;
 mod tokenizer;
 
 use crate::backend::rust::RustBackend;
-use crate::render::Render;
 use crate::parser::Parser;
+use crate::render::Render;
 
 use std::io::Read;
 use std::{env, fs, io, process::Command};
@@ -70,8 +70,9 @@ fn main() -> Result<(), String> {
     assert_eq!(expr_bank.0.len(), 1);
 
     // get IndexExpr
-    let crate::ast::Expr::Index(ref expr) = expr_bank.0[0]
-    else { panic!("expression is not of variant Index") };
+    let crate::ast::Expr::Index(ref expr) = expr_bank.0[0] else {
+        panic!("expression is not of variant Index")
+    };
 
     // lower
     let block = lowerer::lower(&expr);

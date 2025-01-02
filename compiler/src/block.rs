@@ -20,14 +20,20 @@ pub enum Expr {
     Indexed {
         ident: String, // TODO: Should be Expr (Ident)
         index: Vec<String>,
-    }
+    },
 }
 
 // Should this be an Expr variant?
 #[derive(Clone, Debug)]
 pub struct Arg {
-    pub type_: String,
+    pub type_: Type,
     pub ident: String,
+}
+
+#[derive(Clone, Debug)]
+pub enum Type {
+    Int,
+    Array,
 }
 
 #[derive(Clone, Debug)]
@@ -39,6 +45,7 @@ pub enum Statement {
     Declaration {
         ident: String,
         value: Expr,
+        type_: Type,
     },
     Skip {
         // TODO: These should both probably be Expr (Ident)
@@ -55,7 +62,7 @@ pub enum Statement {
     },
     Function {
         ident: String,
-        type_: String, // return type
+        type_: Type,    // return type
         args: Vec<Arg>, // type, ident
         body: Block,
     },

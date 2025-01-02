@@ -1,12 +1,13 @@
 use std::ops::{Index, IndexMut};
 
+use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::render::Render;
-use crate::block::{ Arg, Block, Expr, Statement };
 
 pub struct RustBackend;
 impl Render for RustBackend {
     fn render(block: &Block) -> String {
-        block.statements
+        block
+            .statements
             .iter()
             .map(|statement| Self::render_statement(&statement))
             .collect::<Vec<_>>()
@@ -15,9 +16,18 @@ impl Render for RustBackend {
 }
 
 impl RustBackend {
+    fn render_type(type_: &Type) -> String {
+        match type_ {
+            Type::Int => "usize".to_string(),
+            Type::Array => "Array".to_string(),
+        }
+    }
     fn render_expr(expr: &Expr) -> String {
         match expr {
-            Expr::Alloc { initial_value, shape } => {
+            Expr::Alloc {
+                initial_value,
+                shape,
+            } => {
                 format!(
                     "Array::new(vec![{}], {})",
                     format!("{}", shape.join(", ")),
@@ -27,10 +37,7 @@ impl RustBackend {
             Expr::ArrayDim { ident, dim } => format!("{ident}.shape[{dim}]"),
             Expr::Str(s) | Expr::Ident(s) => s.to_string(),
             Expr::Int(x) => format!("{x}"),
-            Expr::Op {
-                op,
-                inputs,
-            } => match inputs.len() {
+            Expr::Op { op, inputs } => match inputs.len() {
                 1 => format!("{}", Self::render_expr(&inputs[0])),
                 2 => format!(
                     "({} {} {})",
@@ -51,23 +58,35 @@ impl RustBackend {
                 Self::render_expr(left),
                 Self::render_expr(right)
             ),
-            Statement::Declaration{ ident, value } => format!(
-                "let mut {ident} = {};",
-                Self::render_expr(value)
-            ),
-            Statement::Skip{ index, bound } => format!("if {index} >= {bound} {{ continue; }}"),
-            Statement::Loop{ index, bound, body } => {
+            Statement::Declaration {
+                ident,
+                value,
+                type_,
+            } => {
+                format!(
+                    "let mut {ident}: {} = {};",
+                    Self::render_type(type_),
+                    Self::render_expr(value)
+                )
+            }
+            Statement::Skip { index, bound } => format!("if {index} >= {bound} {{ continue; }}"),
+            Statement::Loop { index, bound, body } => {
                 format!("for {index} in 0..{bound} {{ {} }}", Self::render(body))
             }
 
-            Statement::Function{ ident, type_, args, body } => format!(
+            Statement::Function {
+                ident,
+                type_,
+                args,
+                body,
+            } => format!(
                 //"fn {ident}({}) -> {type_} {{{}}}",
-                "|{}| -> {type_} {{{}}}",
-                args
-                    .iter()
-                    .map(|Arg{ type_, ident }| format!("{ident}: {type_}"))
+                "|{}| -> {} {{{}}}",
+                args.iter()
+                    .map(|Arg { type_, ident }| format!("{ident}: {}", Self::render_type(type_)))
                     .collect::<Vec<_>>()
                     .join(", "),
+                Self::render_type(type_),
                 Self::render(&body),
             ),
             Statement::Return { value } => Self::render_expr(&value),
