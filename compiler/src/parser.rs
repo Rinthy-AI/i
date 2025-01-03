@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_splits(&mut self) -> Result<HashMap<char, Vec<i32>>, ParseError> {
+    fn parse_splits(&mut self) -> Result<HashMap<char, Vec<usize>>, ParseError> {
         // Skip the initial Bar token
         self.tokenizer.next();
 
@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
                                 self.tokenizer.next(); // consume the colon
                                 match self.tokenizer.next() {
                                     Token::Int(num) => {
-                                        split_factors.push(num.parse::<i32>().unwrap());
+                                        split_factors.push(num.parse::<usize>().unwrap());
                                     }
                                     _ => {
                                         return Err(ParseError::InvalidToken {
@@ -177,7 +177,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_loop_order(&mut self) -> Result<Vec<(char, i32)>, ParseError> {
+    fn parse_loop_order(&mut self) -> Result<Vec<(char, usize)>, ParseError> {
         // Skip the initial Bar token
         self.tokenizer.next();
         match self.tokenizer.next() {
