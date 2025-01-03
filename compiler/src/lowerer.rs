@@ -180,6 +180,21 @@ impl Lowerer {
             &index,
         );
 
+        let split_factor_idents: HashMap<char, Vec<String>> = schedule
+            .splits
+            .iter()
+            .map(|(char_index, split_list)| {
+                (
+                    *char_index,
+                    split_list
+                        .iter()
+                        .enumerate()
+                        .map(|(ind, _split_factor)| format!("{}_{ind}", bound_idents[char_index]))
+                        .collect(),
+                )
+            })
+            .collect();
+
         //let (char_index, rank) = schedule.loop_order[0];
         //println!(
         //    "{:#?}",
@@ -257,8 +272,9 @@ impl Lowerer {
         bound_idents: &HashMap<char, String>,
     ) -> Vec<Statement> {
         // for each loop in loop order:
-        //     is loop a base?
-        //     is loop a factor loop?
+        //     is it a base loop?
+        //     is it a factor loop?
+        //     does it require index reconstruction?
 
         vec![Statement::Loop {
             index: "todo".to_string(),
