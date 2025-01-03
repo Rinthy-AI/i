@@ -100,14 +100,14 @@ pub fn lower(dep: &IndexExpr) -> Block {
     };
 
     let partial_op_expr = Expr::Op {
-        op: op,
+        op,
         inputs: indexed_in_arrays,
     };
 
     let op = Statement::Assignment {
         left: indexed_out_expr.clone(),
         right: Expr::Op {
-            op: op,
+            op,
             inputs: vec![indexed_out_expr, partial_op_expr],
         },
     };
@@ -120,7 +120,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
                 0 => {
                     let mut bound = format!("n{index}");
                     let loop_splits = &splits[index];
-                    if loop_splits.len() > 0 {
+                    if !loop_splits.is_empty() {
                         let n_loop_splits = loop_splits.len();
                         let tile_width_string = format!(
                             "({})",
@@ -193,7 +193,7 @@ pub fn lower(dep: &IndexExpr) -> Block {
                 }
             }
         })
-        .fold(op.clone(), |mut loop_stack, mut loop_| {
+        .fold(op.clone(), |loop_stack, mut loop_| {
             if let Statement::Loop{ ref mut body, .. } = loop_ {
                 body.statements.push(loop_stack);
             }

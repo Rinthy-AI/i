@@ -6,9 +6,11 @@ mod parser;
 mod render;
 mod tokenizer;
 
-use crate::backend::rust::RustBackend;
-use crate::parser::Parser;
-use crate::render::Render;
+use ast::Expr;
+use backend::cuda::CudaBackend;
+use backend::rust::RustBackend;
+use parser::Parser;
+use render::Render;
 
 use std::io::Read;
 use std::{env, fs, io, process::Command};
@@ -16,9 +18,9 @@ use std::{env, fs, io, process::Command};
 // Formats Rust code using rustfmt
 fn format_rust_code(code: String) -> String {
     let path = "/tmp/tmp.rs";
-    fs::write(&path, code).unwrap();
-    Command::new("rustfmt").arg(&path).status().unwrap();
-    fs::read_to_string(&path).unwrap()
+    fs::write(path, code).unwrap();
+    Command::new("rustfmt").arg(path).status().unwrap();
+    fs::read_to_string(path).unwrap()
 }
 
 fn main() -> Result<(), String> {
@@ -45,11 +47,6 @@ fn main() -> Result<(), String> {
         }
     }
 
-    // Validate the target platform
-    if target != "rust" {
-        return Err(format!("Error: Unsupported target '{}'", target));
-    }
-
     // Read input
     let input = if let Some(path) = input_path {
         if path == "-" {
@@ -70,33 +67,32 @@ fn main() -> Result<(), String> {
     assert_eq!(expr_bank.0.len(), 1);
 
     // get IndexExpr
-    let crate::ast::Expr::Index(ref expr) = expr_bank.0[0] else {
+    let Expr::Index(ref expr) = expr_bank.0[0] else {
         panic!("expression is not of variant Index")
     };
 
     // lower
-    let block = lowerer::lower(&expr);
+    let block = lowerer::lower(expr);
 
-    let code = RustBackend::render(&block);
-    let formatted_code = format_rust_code(format!("fn main() {{ let f = {code};}}"));
-
-    //let formatted_code = format!("{:#?}", block);
-
-    //let backend = RustBackend {};
-    //let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
-    //let code = format!("fn main() {{ let f = {};}}", renderer.render().unwrap());
-    //let formatted_code = format_rust_code(code);
+    // render
+    let code = match target {
+        "rust" => format_rust_code(format!(
+            "fn main() {{ let f = {};}}",
+            RustBackend::render(&block)
+        )),
+        "cuda" => CudaBackend::render(&block),
+        _ => return Err(format!("Error: Unsupported target '{}'", target)),
+    };
 
     // Write output
     if let Some(path) = output_path {
         if path == "-" {
-            println!("{}", formatted_code);
+            println!("{}", code);
         } else {
-            fs::write(path, formatted_code)
-                .map_err(|e| format!("Failed to write output file: {}", e))?;
+            fs::write(path, code).map_err(|e| format!("Failed to write output file: {}", e))?;
         }
     } else {
-        println!("{}", formatted_code);
+        println!("{}", code);
     }
 
     Ok(())

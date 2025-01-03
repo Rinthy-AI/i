@@ -9,7 +9,7 @@ impl Render for RustBackend {
         block
             .statements
             .iter()
-            .map(|statement| Self::render_statement(&statement))
+            .map(Self::render_statement)
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -38,7 +38,7 @@ impl RustBackend {
             Expr::Str(s) | Expr::Ident(s) => s.to_string(),
             Expr::Int(x) => format!("{x}"),
             Expr::Op { op, inputs } => match inputs.len() {
-                1 => format!("{}", Self::render_expr(&inputs[0])),
+                1 => Self::render_expr(&inputs[0]).to_string(),
                 2 => format!(
                     "({} {} {})",
                     Self::render_expr(&inputs[0]),
@@ -87,9 +87,9 @@ impl RustBackend {
                     .collect::<Vec<_>>()
                     .join(", "),
                 Self::render_type(type_),
-                Self::render(&body),
+                Self::render(body),
             ),
-            Statement::Return { value } => Self::render_expr(&value),
+            Statement::Return { value } => Self::render_expr(value),
         }
     }
 }

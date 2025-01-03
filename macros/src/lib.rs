@@ -15,7 +15,7 @@ pub fn i(input: TokenStream) -> TokenStream {
     };
 
     // lower
-    let block = compiler::lowerer::lower(&expr);
+    let block = compiler::lowerer::lower(expr);
 
     let code = RustBackend::render(&block);
     code.parse().unwrap()
