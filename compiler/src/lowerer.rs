@@ -148,15 +148,18 @@ impl Lowerer {
             });
         }
 
-        let indices: Vec<String> = vec![]; // TODO: remove
+        let mut all_char_indices: Vec<char> = bound_idents.keys().map(|c| *c).collect();
+        all_char_indices.sort();
 
         // create idents for base iterators (splits to be affixed with `_{ind}`)
-        let base_iterator_idents: HashMap<char, String> = bound_idents
-            .keys()
+        let base_iterator_idents: HashMap<char, String> = all_char_indices
+            .iter()
             .enumerate()
             .map(|(ind, char_index)| (*char_index, format!("i{}", ind + self.iterator_counter)))
             .collect();
         self.iterator_counter += base_iterator_idents.len();
+
+        println!("{:#?}", base_iterator_idents);
 
         // create store ident for each child
         let child_store_idents: Vec<String> = children
@@ -177,9 +180,9 @@ impl Lowerer {
             &index,
         );
 
-        println!("op statement: {:#?}", op_statement);
-
-        Block { statements: vec![] }
+        Block {
+            statements: vec![op_statement],
+        }
     }
 
     fn create_op_statement(
