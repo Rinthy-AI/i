@@ -313,7 +313,7 @@ impl Lowerer {
             .map(|(char_index, splits_factors)| *char_index)
             .collect();
 
-        for (char_index, rank) in &schedule.loop_order {
+        for (char_index, rank) in schedule.loop_order.iter().rev() {
             let splits = schedule.splits.get(char_index);
 
             let index = if splits.is_some() && *rank > 0 {
@@ -337,16 +337,21 @@ impl Lowerer {
                 }
             };
 
-            // perform index reconstruction if needed
-            if needs_index_reconstruction.remove(&char_index) {
-                // build reconstruction statement
-                // build skip statement
-            }
-
             statements.push(Statement::Loop {
                 index: index.clone(),
                 bound: bound,
-                body: Block { statements: vec![] },
+                body: Block {
+                    statements: if needs_index_reconstruction.remove(&char_index) {
+                        Self::create_index_reconstruction_statements(
+                            &base_iterator_idents[&char_index],
+                            &bound_idents[&char_index],
+                            &split_factor_idents[&char_index],
+                            *rank,
+                        )
+                    } else {
+                        vec![]
+                    },
+                },
             });
         }
 
@@ -383,5 +388,68 @@ impl Lowerer {
             op: '/',
             inputs: vec![numerator, tile_width_expr],
         }
+    }
+
+    fn create_index_reconstruction_statements(
+        base_iterator_ident: &String,
+        base_bound_ident: &String,
+        split_factors_idents: &Vec<String>,
+        rank: usize,
+    ) -> Vec<Statement> {
+        let mut factor_loop_widths: Vec<Expr> = split_factors_idents
+            .iter()
+            .map(|ident| Expr::Ident(ident.clone()))
+            .collect();
+
+        // number of elements per iteration of base loop
+        let base_loop_tile_width = Expr::Op {
+            op: '*',
+            inputs: factor_loop_widths.clone(),
+        };
+
+        let mut widths = factor_loop_widths;
+        widths.insert(0, base_loop_tile_width);
+
+        let mut factor_loop_iterator: Vec<Expr> = split_factors_idents
+            .iter()
+            .enumerate()
+            .map(|(ind, ident)| Expr::Ident(format!("{}_{ind}", base_iterator_ident.clone())))
+            .collect();
+
+        let mut iterators = factor_loop_iterator;
+        iterators.insert(0, Expr::Ident(base_iterator_ident.clone()));
+
+        // remove present loop before total width calculation
+        let current_iterator = iterators.remove(rank);
+        widths.remove(rank);
+
+        assert_eq!(widths.len(), iterators.len());
+        let mut total_width: Vec<Expr> = widths
+            .into_iter()
+            .zip(iterators.into_iter())
+            .map(|(width, iterator)| Expr::Op {
+                op: '*',
+                inputs: vec![width, iterator],
+            })
+            .collect();
+
+        total_width.push(current_iterator);
+
+        let reconstructed_index = Expr::Op {
+            op: '+',
+            inputs: total_width,
+        };
+
+        vec![
+            Statement::Declaration {
+                ident: base_iterator_ident.clone(),
+                value: reconstructed_index,
+                type_: Type::Int,
+            },
+            Statement::Skip {
+                index: base_iterator_ident.clone(),
+                bound: base_bound_ident.clone(),
+            },
+        ]
     }
 }
