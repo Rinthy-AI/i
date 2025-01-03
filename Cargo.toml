@@ -1,6 +1,3 @@
 [workspace]
-members = [
-    "compiler",
-    "macros",
-    "example",
-]
+members = ["compiler", "macros", "example"]
+resolver = "2"
