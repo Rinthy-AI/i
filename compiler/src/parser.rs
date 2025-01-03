@@ -173,7 +173,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_loop_order(&mut self) -> Result<Vec<(String, i32)>, ParseError> {
+    fn parse_loop_order(&mut self) -> Result<Vec<(char, i32)>, ParseError> {
         // Skip the initial Bar token
         self.tokenizer.next();
         match self.tokenizer.next() {
@@ -193,7 +193,7 @@ impl<'a> Parser<'a> {
                             }
                         }
 
-                        result.push((c.to_string(), apostrophe_count));
+                        result.push((c, apostrophe_count));
                     }
                 }
                 Ok(result)
