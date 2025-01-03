@@ -219,17 +219,15 @@ impl Lowerer {
             &index,
         );
 
-        //let (char_index, rank) = schedule.loop_order[0];
-        //println!(
-        //    "{:#?}",
-        //    (bound_idents[&char_index].clone(), base_iterator_idents[&char_index].clone(), rank)
-        //);
-        let loop_statements: Vec<Statement> =
-            Self::create_empty_loop_statements(&schedule, &base_iterator_idents, &bound_idents);
-
-        //println!("{:#?}", loop_statement);
+        let loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
+            &schedule,
+            &base_iterator_idents,
+            &bound_idents,
+            &split_factor_idents,
+        );
 
         Block {
+            //statements: vec![],
             statements: [
                 split_factor_assignment_statements,
                 loop_statements,
@@ -299,16 +297,91 @@ impl Lowerer {
         schedule: &Schedule,
         base_iterator_idents: &HashMap<char, String>,
         bound_idents: &HashMap<char, String>,
+        split_factor_idents: &HashMap<char, Vec<String>>,
     ) -> Vec<Statement> {
         // for each loop in loop order:
         //     is it a base loop?
         //     is it a factor loop?
         //     does it require index reconstruction?
 
-        vec![Statement::Loop {
-            index: "todo".to_string(),
-            bound: "todo".to_string(),
-            body: Block { statements: vec![] },
-        }]
+        let mut statements = vec![];
+
+        let mut needs_index_reconstruction: HashSet<char> = schedule
+            .splits
+            .iter()
+            .filter(|(char_index, splits_factors)| splits_factors.len() > 0)
+            .map(|(char_index, splits_factors)| *char_index)
+            .collect();
+
+        for (char_index, rank) in &schedule.loop_order {
+            let splits = schedule.splits.get(char_index);
+
+            let index = if splits.is_some() && *rank > 0 {
+                format!(
+                    "{}_{}",
+                    base_iterator_idents[&char_index].clone(),
+                    (*rank - 1)
+                )
+            } else {
+                base_iterator_idents[&char_index].clone()
+            };
+
+            let bound = match (splits, rank) {
+                (None, _) => Expr::Ident(bound_idents[&char_index].clone()),
+                (Some(splits), 0) => Self::create_split_bound_expr(
+                    &bound_idents[&char_index],
+                    &split_factor_idents[&char_index],
+                ),
+                (Some(splits), rank) => {
+                    Expr::Ident(split_factor_idents[&char_index][*rank - 1].clone())
+                }
+            };
+
+            // perform index reconstruction if needed
+            if needs_index_reconstruction.remove(&char_index) {
+                // build reconstruction statement
+                // build skip statement
+            }
+
+            statements.push(Statement::Loop {
+                index: index.clone(),
+                bound: bound,
+                body: Block { statements: vec![] },
+            });
+        }
+
+        statements
+    }
+
+    fn create_split_bound_expr(
+        base_bound_ident: &String,
+        split_factors_idents: &Vec<String>,
+    ) -> Expr {
+        let tile_width_expr = Expr::Op {
+            op: '*',
+            inputs: split_factors_idents
+                .iter()
+                .map(|ident| Expr::Ident(ident.clone()))
+                .collect(),
+        };
+
+        let numerator = Expr::Op {
+            op: '-',
+            inputs: vec![
+                Expr::Op {
+                    op: '+',
+                    inputs: vec![
+                        Expr::Ident(base_bound_ident.clone()),
+                        tile_width_expr.clone(),
+                    ],
+                },
+                Expr::Int(1),
+            ],
+        };
+
+        Expr::Op {
+            op: '/',
+            inputs: vec![numerator, tile_width_expr],
+        }
     }
 }

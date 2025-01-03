@@ -54,7 +54,7 @@ pub enum Statement {
     },
     Loop {
         index: String,
-        bound: String,
+        bound: Expr,
         body: Block,
     },
     Return {
