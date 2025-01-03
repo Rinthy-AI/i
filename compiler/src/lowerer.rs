@@ -133,10 +133,11 @@ impl Lowerer {
             .map(|(char_index, bound_ident)| (*char_index, bound_ident.clone()))
             .collect();
 
+        let child_indices: Vec<String> = children.iter().map(|child| child.index()).collect();
+
         // create and insert input bound idents into table (not overwriting existing idents)
-        for (ind, char_index) in children
+        for (ind, char_index) in child_indices
             .iter()
-            .map(|child| child.index())
             .flat_map(|index| index.chars().collect::<Vec<_>>())
             .enumerate()
         {
@@ -158,19 +159,82 @@ impl Lowerer {
         self.iterator_counter += base_iterator_idents.len();
 
         // create store ident for each child
-        let store_idents: Vec<String> = children
+        let child_store_idents: Vec<String> = children
             .iter()
             .enumerate()
             .map(|(ind, child)| format!("s{}", ind + self.store_counter))
             .collect();
-        self.store_counter += store_idents.len();
+        self.store_counter += child_store_idents.len();
 
         // determine splits
 
-        //let Self::create_op_statement(op, );
+        let op_statement = Self::create_op_statement(
+            op,
+            &base_iterator_idents,
+            &child_store_idents,
+            &child_indices,
+            store_ident,
+            &index,
+        );
 
-        println!("{:#?}", store_idents);
+        println!("op statement: {:#?}", op_statement);
 
         Block { statements: vec![] }
+    }
+
+    fn create_op_statement(
+        op: &ScalarOp,
+        base_iterator_idents: &HashMap<char, String>,
+        child_store_idents: &Vec<String>,
+        child_indices: &Vec<String>,
+        store_ident: String,
+        index: &String,
+    ) -> Statement {
+        assert_eq!(child_store_idents.len(), child_indices.len());
+
+        let op_char = match op {
+            ScalarOp::UnaryOp(UnaryOp::Accum(_)) | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => '+',
+            ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
+            ScalarOp::NoOp(_) => ' ', // never used
+        };
+
+        let out_expr = Expr::Indexed {
+            ident: store_ident,
+            index: index
+                .chars()
+                .map(|c| base_iterator_idents[&c].clone())
+                .collect(),
+        };
+
+        let mut in_exprs: Vec<Expr> = child_store_idents
+            .iter()
+            .zip(child_indices.iter())
+            .map(|(ident, index)| Expr::Indexed {
+                ident: ident.clone(),
+                index: index
+                    .chars()
+                    .map(|c| base_iterator_idents[&c].clone())
+                    .collect(),
+            })
+            .collect();
+
+        if in_exprs.len() == 1 {
+            // Pushing to front here shouldn't be a problem unless we start allowing ops of
+            // arbitrary inputs.
+            in_exprs.insert(0, out_expr.clone());
+        }
+        assert_eq!(
+            in_exprs.len(),
+            2,
+            "Expected exactly two operands for op [{op_char}]."
+        );
+
+        Statement::Assignment {
+            left: out_expr,
+            right: Expr::Op {
+                op: op_char,
+                inputs: in_exprs,
+            },
+        }
     }
 }
