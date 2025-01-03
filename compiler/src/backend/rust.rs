@@ -71,7 +71,11 @@ impl RustBackend {
             }
             Statement::Skip { index, bound } => format!("if {index} >= {bound} {{ continue; }}"),
             Statement::Loop { index, bound, body } => {
-                format!("for {index} in 0..{bound} {{ {} }}", Self::render(body))
+                format!(
+                    "for {index} in 0..{} {{ {} }}",
+                    Self::render_expr(&bound),
+                    Self::render(body)
+                )
             }
 
             Statement::Function {

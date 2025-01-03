@@ -240,7 +240,7 @@ fn lower_interior_node(node: &Node, bounds_by_dim: Vec<String>) -> Block {
 
             Statement::Loop {
                 index,
-                bound,
+                bound: Expr::Ident(bound),
                 body: Block {
                     statements: body,
                 }
