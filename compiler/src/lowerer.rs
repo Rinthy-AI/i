@@ -159,8 +159,6 @@ impl Lowerer {
             .collect();
         self.iterator_counter += base_iterator_idents.len();
 
-        println!("{:#?}", base_iterator_idents);
-
         // create store ident for each child
         let child_store_idents: Vec<String> = children
             .iter()
@@ -171,6 +169,8 @@ impl Lowerer {
 
         // determine splits
 
+        // TODO: The mapping should probably be done in the present function instead of passing
+        //       the hashmap here.
         let op_statement = Self::create_op_statement(
             op,
             &base_iterator_idents,
@@ -179,6 +179,16 @@ impl Lowerer {
             store_ident,
             &index,
         );
+
+        //let (char_index, rank) = schedule.loop_order[0];
+        //println!(
+        //    "{:#?}",
+        //    (bound_idents[&char_index].clone(), base_iterator_idents[&char_index].clone(), rank)
+        //);
+        let loop_statement =
+            Self::create_empty_loop_statements(&schedule, &base_iterator_idents, &bound_idents);
+
+        //println!("{:#?}", loop_statement);
 
         Block {
             statements: vec![op_statement],
@@ -239,5 +249,21 @@ impl Lowerer {
                 inputs: in_exprs,
             },
         }
+    }
+
+    fn create_empty_loop_statements(
+        schedule: &Schedule,
+        base_iterator_idents: &HashMap<char, String>,
+        bound_idents: &HashMap<char, String>,
+    ) -> Vec<Statement> {
+        // for each loop in loop order:
+        //     is loop a base?
+        //     is loop a factor loop?
+
+        vec![Statement::Loop {
+            index: "todo".to_string(),
+            bound: "todo".to_string(),
+            body: Block { statements: vec![] },
+        }]
     }
 }
