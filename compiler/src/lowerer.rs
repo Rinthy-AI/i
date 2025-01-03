@@ -15,6 +15,7 @@ pub struct Lowerer {
     bound_counter: usize,
     iterator_counter: usize,
     store_counter: usize,
+    split_factor_count: usize,
 }
 
 // TODO: Remove this
@@ -29,6 +30,7 @@ impl Lowerer {
             bound_counter: 0,
             iterator_counter: 0,
             store_counter: 0,
+            split_factor_count: 0,
         }
     }
 
@@ -189,7 +191,14 @@ impl Lowerer {
                     split_list
                         .iter()
                         .enumerate()
-                        .map(|(ind, _split_factor)| format!("{}_{ind}", bound_idents[char_index]))
+                        .map(|(ind, _split_factor)| {
+                            let split_factor_ident = format!(
+                                "{}_{ind}_{}",
+                                bound_idents[char_index], self.split_factor_count
+                            );
+                            self.split_factor_count += 1;
+                            split_factor_ident
+                        })
                         .collect(),
                 )
             })
