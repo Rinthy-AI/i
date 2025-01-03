@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_splits(&mut self) -> Result<HashMap<String, Vec<i32>>, ParseError> {
+    fn parse_splits(&mut self) -> Result<HashMap<char, Vec<i32>>, ParseError> {
         // Skip the initial Bar token
         self.tokenizer.next();
 
@@ -124,6 +124,10 @@ impl<'a> Parser<'a> {
             // Parse the index identifier
             match self.tokenizer.next() {
                 Token::Symbol(s) => {
+                    let c = s
+                        .chars()
+                        .next()
+                        .expect("Expected single-char index in split list.");
                     let mut split_factors = Vec::new();
 
                     // Keep parsing colon-separated integers
@@ -143,17 +147,17 @@ impl<'a> Parser<'a> {
                                 }
                             }
                             Token::EOF | Token::Squiggle => {
-                                splits.insert(s, split_factors);
+                                splits.insert(c, split_factors);
                                 return Ok(splits);
                             }
                             Token::Symbol(_) | Token::Operator(_) | Token::Dot | Token::Bar => {
-                                splits.insert(s, split_factors);
+                                splits.insert(c, split_factors);
                                 return Ok(splits);
                             }
                             _ => {
                                 // Check if there's a comma indicating another split-list
                                 if let Token::Comma = self.tokenizer.next() {
-                                    splits.insert(s, split_factors);
+                                    splits.insert(c, split_factors);
                                     break; // Continue to parse the next split-list
                                 } else {
                                     return Err(ParseError::InvalidToken {
