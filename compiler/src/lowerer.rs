@@ -169,19 +169,7 @@ impl Lowerer {
             .collect();
         self.store_counter += child_store_idents.len();
 
-        // determine splits
-
-        // TODO: The mapping should probably be done in the present function instead of passing
-        //       the hashmap here.
-        let op_statement = Self::create_op_statement(
-            op,
-            &base_iterator_idents,
-            &child_store_idents,
-            &child_indices,
-            store_ident,
-            &index,
-        );
-
+        // create split factor idents
         let split_factor_idents: HashMap<char, Vec<String>> = schedule
             .splits
             .iter()
@@ -204,18 +192,50 @@ impl Lowerer {
             })
             .collect();
 
+        // create assignment statement for each split factor ident
+        let split_factor_assignment_statements: Vec<Statement> = schedule
+            .splits
+            .iter()
+            .flat_map(|(char_index, split_factors)| {
+                split_factors
+                    .iter()
+                    .zip(split_factor_idents[char_index].iter())
+                    .map(|(factor, ident)| Statement::Declaration {
+                        ident: ident.clone(),
+                        value: Expr::Int(*factor),
+                        type_: Type::Int,
+                    })
+            })
+            .collect();
+
+        // TODO: The mapping should probably be done in the present function instead of passing
+        //       the hashmap here.
+        let op_statement = Self::create_op_statement(
+            op,
+            &base_iterator_idents,
+            &child_store_idents,
+            &child_indices,
+            store_ident,
+            &index,
+        );
+
         //let (char_index, rank) = schedule.loop_order[0];
         //println!(
         //    "{:#?}",
         //    (bound_idents[&char_index].clone(), base_iterator_idents[&char_index].clone(), rank)
         //);
-        let loop_statement =
+        let loop_statements: Vec<Statement> =
             Self::create_empty_loop_statements(&schedule, &base_iterator_idents, &bound_idents);
 
         //println!("{:#?}", loop_statement);
 
         Block {
-            statements: vec![op_statement],
+            statements: [
+                split_factor_assignment_statements,
+                loop_statements,
+                vec![op_statement],
+            ]
+            .concat(),
         }
     }
 
