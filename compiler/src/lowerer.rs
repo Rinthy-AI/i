@@ -50,20 +50,22 @@ impl Lowerer {
             .map(|c| bound_idents[&c].clone())
             .collect();
 
-        let nodes_block = self.lower_node(&graph.root, output_bound_idents, store_ident);
+        let nodes_block = self.lower_node(&graph.root, output_bound_idents.clone(), store_ident);
+
+        let (output_array_args, dim_arg_declarations) = self.create_args_and_ident_declarations(
+            "out".to_string(),
+            output_bound_idents.clone(),
+            true,
+        );
+
+        self.input_args.extend(output_array_args);
 
         let mut function_statement = Statement::Function {
             ident: "f".to_string(),
             type_: Type::Array,
             args: self.input_args.clone(),
             body: Block {
-                statements: [
-                    nodes_block.statements,
-                    vec![Statement::Return {
-                        value: Expr::Ident("out".to_string()),
-                    }],
-                ]
-                .concat(),
+                statements: [dim_arg_declarations, nodes_block.statements].concat(),
             },
         };
 
@@ -542,5 +544,42 @@ impl Lowerer {
             };
         }
         sum_expr
+    }
+
+    fn create_args_and_ident_declarations(
+        &mut self,
+        ident: String,
+        bound_idents: Vec<String>,
+        mutable: bool,
+    ) -> (Vec<Arg>, Vec<Statement>) {
+        let mut args = Vec::new();
+
+        // push array arg
+        args.push(Arg {
+            type_: Type::Array,
+            ident: ident.clone(),
+            mutable: mutable,
+        });
+
+        // push dim args and create declaration statements
+        let mut statements = vec![];
+        for (ind, bound_ident) in bound_idents.iter().enumerate() {
+            let dim_arg_ident = format!("{}_{}", ident.clone(), ind);
+
+            args.push(Arg {
+                type_: Type::Int,
+                ident: dim_arg_ident.clone(),
+                mutable: false,
+            });
+
+            // map nice dim arg names to messy generated bound idents
+            statements.push(Statement::Declaration {
+                ident: bound_ident.clone(),
+                value: Expr::Ident(dim_arg_ident),
+                type_: Type::Int,
+            });
+        }
+
+        (args, statements)
     }
 }
