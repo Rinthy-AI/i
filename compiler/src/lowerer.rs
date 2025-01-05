@@ -5,8 +5,8 @@ use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::graph::{Graph, Node};
 
 pub struct Lowerer {
-    input_idents: Vec<String>,
     input_args: Vec<Arg>,
+    input_array_counter: usize,
     bound_counter: usize,
     iterator_counter: usize,
     store_counter: usize,
@@ -16,8 +16,8 @@ pub struct Lowerer {
 impl Lowerer {
     pub fn new() -> Self {
         Lowerer {
-            input_idents: Vec::new(),
             input_args: Vec::new(),
+            input_array_counter: 0,
             bound_counter: 0,
             iterator_counter: 0,
             store_counter: 0,
@@ -52,11 +52,8 @@ impl Lowerer {
 
         let nodes_block = self.lower_node(&graph.root, output_bound_idents.clone(), store_ident);
 
-        let (output_array_args, dim_arg_declarations) = self.create_args_and_ident_declarations(
-            "out".to_string(),
-            output_bound_idents.clone(),
-            true,
-        );
+        let (output_array_args, dim_arg_declarations) =
+            self.create_args_and_ident_declarations(None, output_bound_idents.clone(), true);
 
         self.input_args.extend(output_array_args);
 
@@ -98,10 +95,8 @@ impl Lowerer {
             panic!("Expected leaf node.")
         };
 
-        self.input_idents.push(store_ident.clone());
-
         let (output_array_args, dim_arg_declarations) = self.create_args_and_ident_declarations(
-            store_ident,
+            Some(store_ident),
             output_bound_idents.clone(),
             false,
         );
@@ -532,11 +527,19 @@ impl Lowerer {
 
     fn create_args_and_ident_declarations(
         &mut self,
-        ident: String,
+        store_ident: Option<String>,
         bound_idents: Vec<String>,
         mutable: bool,
     ) -> (Vec<Arg>, Vec<Statement>) {
         let mut args = Vec::new();
+        let mut statements = vec![];
+
+        let ident = if store_ident.is_some() {
+            format!("in{}", self.input_array_counter)
+        } else {
+            "out".to_string()
+        };
+        self.input_array_counter += 1;
 
         // push array arg
         args.push(Arg {
@@ -545,8 +548,16 @@ impl Lowerer {
             mutable: mutable,
         });
 
+        // map nice dim arg names to messy generated bound idents
+        if let Some(store_ident) = store_ident {
+            statements.push(Statement::Declaration {
+                ident: store_ident,
+                value: Expr::Ident(ident.clone()),
+                type_: Type::Array,
+            });
+        }
+
         // push dim args and create declaration statements
-        let mut statements = vec![];
         for (ind, bound_ident) in bound_idents.iter().enumerate() {
             let dim_arg_ident = format!("{}_{}", ident.clone(), ind);
 
