@@ -19,7 +19,7 @@ impl RustBackend {
     fn render_type(type_: &Type) -> String {
         match type_ {
             Type::Int => "usize".to_string(),
-            Type::Array => "Array".to_string(),
+            Type::Array => "Vec<f32>".to_string(),
         }
     }
     fn render_expr(expr: &Expr) -> String {
@@ -29,9 +29,9 @@ impl RustBackend {
                 shape,
             } => {
                 format!(
-                    "Array::new(vec![{}], {})",
-                    format!("{}", shape.join(", ")),
+                    "vec![{}; {}]",
                     format!("{:.1}", initial_value), // using `.to_string()` won't produce decimal
+                    format!("{}", shape.join(" * ")),
                 )
             }
             Expr::ArrayDim { ident, dim } => format!("{ident}.shape[{dim}]"),
@@ -45,7 +45,7 @@ impl RustBackend {
                     .collect::<Vec<_>>()
                     .join(&format!(" {op} ")),
             ),
-            Expr::Indexed { ident, index } => format!("{ident}[&[{}]]", index.join(", ")),
+            Expr::Indexed { ident, index } => format!("{ident}[{}]", Self::render_expr(&index),),
         }
     }
 

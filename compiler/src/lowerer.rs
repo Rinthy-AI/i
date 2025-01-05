@@ -243,6 +243,7 @@ impl Lowerer {
         //       the hashmap here.
         let op_statement = Self::create_op_statement(
             op,
+            &bound_idents,
             &base_iterator_idents,
             &child_store_idents,
             &child_indices,
@@ -297,6 +298,7 @@ impl Lowerer {
 
     fn create_op_statement(
         op: &ScalarOp,
+        bound_idents: &HashMap<char, String>,
         base_iterator_idents: &HashMap<char, String>,
         child_store_idents: &Vec<String>,
         child_indices: &Vec<String>,
@@ -313,10 +315,13 @@ impl Lowerer {
 
         let out_expr = Expr::Indexed {
             ident: store_ident,
-            index: index
-                .chars()
-                .map(|c| base_iterator_idents[&c].clone())
-                .collect(),
+            index: Box::new(Self::create_affine_index(
+                index
+                    .chars()
+                    .map(|c| base_iterator_idents[&c].clone())
+                    .collect(),
+                index.chars().map(|c| bound_idents[&c].clone()).collect(),
+            )),
         };
 
         let mut in_exprs: Vec<Expr> = child_store_idents
@@ -324,10 +329,13 @@ impl Lowerer {
             .zip(child_indices.iter())
             .map(|(ident, index)| Expr::Indexed {
                 ident: ident.clone(),
-                index: index
-                    .chars()
-                    .map(|c| base_iterator_idents[&c].clone())
-                    .collect(),
+                index: Box::new(Self::create_affine_index(
+                    index
+                        .chars()
+                        .map(|c| base_iterator_idents[&c].clone())
+                        .collect(),
+                    index.chars().map(|c| bound_idents[&c].clone()).collect(),
+                )),
             })
             .collect();
 
@@ -507,5 +515,28 @@ impl Lowerer {
                 bound: base_bound_ident.clone(),
             },
         ]
+    }
+
+    fn create_affine_index(indices: Vec<String>, bounds: Vec<String>) -> Expr {
+        let d = indices.len();
+        let mut sum_expr = Expr::Int(0);
+        for k in 0..d {
+            let mut product_expr = Expr::Int(1);
+            for m in (k + 1)..d {
+                product_expr = Expr::Op {
+                    op: '*',
+                    inputs: vec![product_expr, Expr::Ident(bounds[m].clone())],
+                };
+            }
+            let partial_expr = Expr::Op {
+                op: '*',
+                inputs: vec![Expr::Ident(indices[k].clone()), product_expr],
+            };
+            sum_expr = Expr::Op {
+                op: '+',
+                inputs: vec![sum_expr, partial_expr],
+            };
+        }
+        sum_expr
     }
 }

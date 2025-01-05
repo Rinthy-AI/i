@@ -19,7 +19,7 @@ pub enum Expr {
     },
     Indexed {
         ident: String, // TODO: Should be Expr (Ident)
-        index: Vec<String>,
+        index: Box<Expr>,
     },
 }
 
