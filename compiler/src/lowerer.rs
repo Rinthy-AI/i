@@ -211,7 +211,7 @@ impl Lowerer {
                     .map(|(factor, ident)| Statement::Declaration {
                         ident: ident.clone(),
                         value: Expr::Int(*factor),
-                        type_: Type::Int,
+                        type_: Type::Int(false),
                     })
             })
             .collect();
@@ -223,7 +223,7 @@ impl Lowerer {
                 //shape: index.chars().map(|c| output_bound_idents[&c].clone()).collect(),
                 shape: output_bound_idents.clone(),
             },
-            type_: Type::Array,
+            type_: Type::Array(true),
         };
 
         // TODO: The mapping should probably be done in the present function instead of passing
@@ -501,7 +501,7 @@ impl Lowerer {
             Statement::Declaration {
                 ident: base_iterator_ident.clone(),
                 value: reconstructed_index,
-                type_: Type::Int,
+                type_: Type::Int(false),
             },
             Statement::Skip {
                 index: base_iterator_ident.clone(),
@@ -551,9 +551,8 @@ impl Lowerer {
 
         // push array arg
         args.push(Arg {
-            type_: Type::Array,
+            type_: Type::ArrayRef(if mutable { true } else { false }),
             ident: ident.clone(),
-            mutable: mutable,
         });
 
         // map nice dim arg names to messy generated bound idents
@@ -561,7 +560,7 @@ impl Lowerer {
             statements.push(Statement::Declaration {
                 ident: store_ident,
                 value: Expr::Ident(ident.clone()),
-                type_: Type::Array,
+                type_: Type::ArrayRef(if mutable { true } else { false }),
             });
         }
 
@@ -570,16 +569,15 @@ impl Lowerer {
             let dim_arg_ident = format!("{}_{}", ident.clone(), ind);
 
             args.push(Arg {
-                type_: Type::Int,
+                type_: Type::Int(false),
                 ident: dim_arg_ident.clone(),
-                mutable: false,
             });
 
             // map nice dim arg names to messy generated bound idents
             statements.push(Statement::Declaration {
                 ident: bound_ident.clone(),
                 value: Expr::Ident(dim_arg_ident),
-                type_: Type::Int,
+                type_: Type::Int(false),
             });
         }
 

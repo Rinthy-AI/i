@@ -28,13 +28,13 @@ pub enum Expr {
 pub struct Arg {
     pub type_: Type,
     pub ident: String,
-    pub mutable: bool,
 }
 
 #[derive(Clone, Debug)]
 pub enum Type {
-    Int,
-    Array,
+    Int(bool),
+    Array(bool),
+    ArrayRef(bool),
 }
 
 #[derive(Clone, Debug)]

@@ -18,8 +18,9 @@ impl Render for RustBackend {
 impl RustBackend {
     fn render_type(type_: &Type) -> String {
         match type_ {
-            Type::Int => "usize".to_string(),
-            Type::Array => "Vec<f32>".to_string(),
+            Type::Int(_) => "usize".to_string(),
+            Type::Array(_) => "Vec<f32>".to_string(),
+            Type::ArrayRef(mutable) => format!("&{}Vec<f32>", if *mutable { "mut " } else { "" }),
         }
     }
     fn render_expr(expr: &Expr) -> String {
@@ -61,8 +62,10 @@ impl RustBackend {
                 value,
                 type_,
             } => {
+                let (Type::Int(mutable) | Type::Array(mutable) | Type::ArrayRef(mutable)) = type_;
                 format!(
-                    "let mut {ident}: {} = {};",
+                    "let {}{ident}: {} = {};",
+                    if *mutable { "mut " } else { "" },
                     Self::render_type(type_),
                     Self::render_expr(value)
                 )
@@ -82,17 +85,15 @@ impl RustBackend {
                 //"fn {ident}({}) {{{}}}",
                 "|{}| {{{}}}",
                 args.iter()
-                    .map(
-                        |Arg {
-                             type_,
-                             ident,
-                             mutable,
-                         }| format!(
+                    .map(|Arg { type_, ident }| {
+                        let (Type::Int(mutable) | Type::Array(mutable) | Type::ArrayRef(mutable)) =
+                            type_;
+                        format!(
                             "{}{ident}: {}",
                             if *mutable { "mut " } else { "" },
-                            Self::render_type(type_)
+                            Self::render_type(type_),
                         )
-                    )
+                    })
                     .collect::<Vec<_>>()
                     .join(", "),
                 Self::render(&body),
