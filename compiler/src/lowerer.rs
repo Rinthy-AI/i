@@ -50,7 +50,8 @@ impl Lowerer {
             .map(|c| bound_idents[&c].clone())
             .collect();
 
-        let nodes_block = self.lower_node(&graph.root, output_bound_idents.clone(), store_ident);
+        let nodes_block =
+            self.lower_node(&graph.root, output_bound_idents.clone(), store_ident, false);
 
         let (output_array_args, dim_arg_declarations) =
             self.create_args_and_ident_declarations(None, output_bound_idents.clone(), true);
@@ -59,7 +60,6 @@ impl Lowerer {
 
         let mut function_statement = Statement::Function {
             ident: "f".to_string(),
-            type_: Type::Array,
             args: self.input_args.clone(),
             body: Block {
                 statements: [dim_arg_declarations, nodes_block.statements].concat(),
@@ -76,11 +76,12 @@ impl Lowerer {
         node: &Node,
         output_bound_idents: Vec<String>,
         store_ident: String,
+        alloc_store: bool, // set to false if store is output
     ) -> Block {
         match node {
             Node::Leaf { .. } => self.lower_leaf_node(node, output_bound_idents, store_ident),
             Node::Interior { .. } => {
-                self.lower_interior_node(node, output_bound_idents, store_ident)
+                self.lower_interior_node(node, output_bound_idents, store_ident, alloc_store)
             }
         }
     }
@@ -113,6 +114,7 @@ impl Lowerer {
         node: &Node,
         output_bound_idents: Vec<String>,
         store_ident: String,
+        alloc_store: bool, // set to false if store is output
     ) -> Block {
         let Node::Interior {
             index,
@@ -266,6 +268,7 @@ impl Lowerer {
                         .map(|c| bound_idents[&c].clone())
                         .collect(),
                     child_store_idents[ind].clone(),
+                    true,
                 );
                 child_block.statements
             })
@@ -275,7 +278,12 @@ impl Lowerer {
             statements: [
                 child_statements,
                 split_factor_assignment_statements,
-                vec![alloc_statement, loop_stack],
+                if alloc_store {
+                    vec![alloc_statement]
+                } else {
+                    vec![]
+                }, // TODO: Make not hacky.
+                vec![loop_stack],
             ]
             .concat(),
         }

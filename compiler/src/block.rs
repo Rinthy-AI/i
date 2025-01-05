@@ -64,7 +64,6 @@ pub enum Statement {
     },
     Function {
         ident: String,
-        type_: Type,    // return type
         args: Vec<Arg>, // type, ident
         body: Block,
     },
