@@ -6,6 +6,7 @@ use crate::graph::{Graph, Node};
 
 pub struct Lowerer {
     input_idents: Vec<String>,
+    input_args: Vec<Arg>,
     bound_counter: usize,
     iterator_counter: usize,
     store_counter: usize,
@@ -16,6 +17,7 @@ impl Lowerer {
     pub fn new() -> Self {
         Lowerer {
             input_idents: Vec::new(),
+            input_args: Vec::new(),
             bound_counter: 0,
             iterator_counter: 0,
             store_counter: 0,
@@ -53,14 +55,7 @@ impl Lowerer {
         let mut function_statement = Statement::Function {
             ident: "f".to_string(),
             type_: Type::Array,
-            args: self
-                .input_idents
-                .iter()
-                .map(|ident| Arg {
-                    type_: Type::Array,
-                    ident: ident.clone(),
-                })
-                .collect(),
+            args: self.input_args.clone(),
             body: Block {
                 statements: [
                     nodes_block.statements,
@@ -101,24 +96,33 @@ impl Lowerer {
             panic!("Expected leaf node.")
         };
 
-        // TODO: maybe create a statement to alias this? alternative is use store_ident in
-        //       arg list
-        //format!("in{}", self.input_counter)
-
-        let statements = output_bound_idents
-            .iter()
-            .enumerate()
-            .map(|(dim, ident)| Statement::Declaration {
-                ident: ident.clone(),
-                value: Expr::ArrayDim {
-                    ident: store_ident.clone(),
-                    dim: dim,
-                },
-                type_: Type::Int,
-            })
-            .collect();
-
         self.input_idents.push(store_ident.clone());
+
+        // push array arg
+        self.input_args.push(Arg {
+            type_: Type::Array,
+            ident: store_ident.clone(),
+            mutable: false,
+        });
+
+        // push dim args and create declaration statements
+        let mut statements = vec![];
+        for (ind, bound_ident) in output_bound_idents.iter().enumerate() {
+            let arg_ident = format!("{}_{}", store_ident.clone(), ind);
+
+            // map nice dim arg names to messy generated bound idents
+            statements.push(Statement::Declaration {
+                ident: bound_ident.clone(),
+                value: Expr::Ident(arg_ident.clone()),
+                type_: Type::Int,
+            });
+
+            self.input_args.push(Arg {
+                type_: Type::Int,
+                ident: arg_ident,
+                mutable: false,
+            });
+        }
 
         Block { statements }
     }

@@ -87,7 +87,18 @@ impl RustBackend {
                 //"fn {ident}({}) -> {type_} {{{}}}",
                 "|{}| -> {} {{{}}}",
                 args.iter()
-                    .map(|Arg { type_, ident }| format!("{ident}: {}", Self::render_type(type_)))
+                    .map(
+                        |Arg {
+                             type_,
+                             ident,
+                             mutable,
+                         }| format!(
+                            "{ident}: {}{}{}",
+                            if let Type::Array = type_ { "&" } else { "" },
+                            if *mutable { "mut " } else { "" },
+                            Self::render_type(type_)
+                        )
+                    )
                     .collect::<Vec<_>>()
                     .join(", "),
                 Self::render_type(type_),

@@ -28,6 +28,7 @@ pub enum Expr {
 pub struct Arg {
     pub type_: Type,
     pub ident: String,
+    pub mutable: bool,
 }
 
 #[derive(Clone, Debug)]
