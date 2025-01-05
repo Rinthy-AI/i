@@ -9,6 +9,7 @@ mod render;
 mod tokenizer;
 
 use crate::backend::rust::RustBackend;
+use crate::lowerer::Lowerer;
 use crate::parser::Parser;
 use crate::render::Render;
 
@@ -77,10 +78,11 @@ fn main() -> Result<(), String> {
     };
 
     // lower
-    let block = lowerer::lower(&graph);
+    let block = Lowerer::new().lower(&graph);
 
     let code = RustBackend::render(&block);
     let formatted_code = format_rust_code(format!("fn main() {{ let f = {code};}}"));
+    //let formatted_code = code;
 
     //let formatted_code = format!("{:#?}", block);
 

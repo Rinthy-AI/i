@@ -11,7 +11,7 @@ pub enum Expr {
         dim: usize,
     },
     Str(String),
-    Int(i32),
+    Int(usize),
     Ident(String),
     Op {
         op: char,

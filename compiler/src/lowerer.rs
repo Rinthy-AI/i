@@ -4,316 +4,504 @@ use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp}
 use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::graph::{Graph, Node};
 
-pub fn lower(graph: &Graph) -> Block {
-    let Graph { root: node } = graph;
+pub struct Lowerer {
+    input_idents: Vec<String>,
+    bound_counter: usize,
+    iterator_counter: usize,
+    store_counter: usize,
+    split_factor_count: usize,
+}
 
-    let mut block = lower_node(node);
-    block.statements.push(Statement::Return {
-        value: Expr::Ident("out".to_string()),
-    });
+impl Lowerer {
+    pub fn new() -> Self {
+        Lowerer {
+            input_idents: Vec::new(),
+            bound_counter: 0,
+            iterator_counter: 0,
+            store_counter: 0,
+            split_factor_count: 0,
+        }
+    }
 
-    Block {
-        statements: vec![Statement::Function {
+    fn get_char_indices(index: &String) -> Vec<char> {
+        let mut indices: Vec<char> = index.chars().collect::<HashSet<_>>().into_iter().collect();
+        indices.sort();
+        indices
+    }
+
+    pub fn lower(&mut self, graph: &Graph) -> Block {
+        let indices = Self::get_char_indices(&graph.root.index());
+
+        // create ident for store
+        let store_ident = format!("out");
+
+        let mut bound_idents = HashMap::<char, String>::new();
+        for (ind, index) in indices.iter().enumerate() {
+            bound_idents.insert(*index, format!("b{}", ind + self.bound_counter));
+        }
+        self.bound_counter += bound_idents.len();
+
+        let output_bound_idents: Vec<String> = graph
+            .root
+            .index()
+            .chars()
+            .map(|c| bound_idents[&c].clone())
+            .collect();
+
+        let nodes_block = self.lower_node(&graph.root, output_bound_idents, store_ident);
+
+        let mut function_statement = Statement::Function {
             ident: "f".to_string(),
             type_: Type::Array,
-            args: (0..graph.get_leaves().len())
-                .map(|ind| Arg {
+            args: self
+                .input_idents
+                .iter()
+                .map(|ident| Arg {
                     type_: Type::Array,
-                    ident: format!("in{ind}"),
+                    ident: ident.clone(),
                 })
                 .collect(),
-            body: block,
-        }],
-    }
-}
+            body: Block {
+                statements: [
+                    nodes_block.statements,
+                    vec![Statement::Return {
+                        value: Expr::Ident("out".to_string()),
+                    }],
+                ]
+                .concat(),
+            },
+        };
 
-fn lower_node(node: &Node) -> Block {
-    match node {
-        Node::Leaf { .. } => lower_leaf_node(node, vec![]),
-        Node::Interior { .. } => lower_interior_node(node, vec![]),
+        Block {
+            statements: vec![function_statement],
+        }
     }
-}
 
-fn lower_leaf_node(node: &Node, bounds_by_dim: Vec<String>) -> Block {
-    // This function just sets the bounds variables.
-    Block {
-        statements: bounds_by_dim
+    fn lower_node(
+        &mut self,
+        node: &Node,
+        output_bound_idents: Vec<String>,
+        store_ident: String,
+    ) -> Block {
+        match node {
+            Node::Leaf { .. } => self.lower_leaf_node(node, output_bound_idents, store_ident),
+            Node::Interior { .. } => {
+                self.lower_interior_node(node, output_bound_idents, store_ident)
+            }
+        }
+    }
+
+    fn lower_leaf_node(
+        &mut self,
+        node: &Node,
+        output_bound_idents: Vec<String>,
+        store_ident: String,
+    ) -> Block {
+        let Node::Leaf { index } = node else {
+            panic!("Expected leaf node.")
+        };
+
+        // TODO: maybe create a statement to alias this? alternative is use store_ident in
+        //       arg list
+        //format!("in{}", self.input_counter)
+
+        let statements = output_bound_idents
             .iter()
             .enumerate()
-            .map(|(ind, bound_ident)| Statement::Declaration {
-                ident: bound_ident.to_string(),
+            .map(|(dim, ident)| Statement::Declaration {
+                ident: ident.clone(),
                 value: Expr::ArrayDim {
-                    ident: format!("todo: track total args across graph"),
-                    dim: ind,
+                    ident: store_ident.clone(),
+                    dim: dim,
                 },
                 type_: Type::Int,
             })
-            .collect(),
-    }
-}
+            .collect();
 
-fn lower_interior_node(node: &Node, bounds_by_dim: Vec<String>) -> Block {
-    let Node::Interior {
-        index: result_index,
-        op: scalar_op,
-        children,
-        schedule: Schedule { splits, loop_order },
-    } = node
-    else {
-        panic!("Root node in graph was not of variant `Interior`")
-    };
+        self.input_idents.push(store_ident.clone());
 
-    let (input_index_vecs, op, initial_value) = scalar_op.get_index_vecs_op_char_and_init_value();
-    let output_index_vec = split_index_string(&result_index);
-
-    let mut statements = Vec::new();
-
-    let indices: Vec<String> = input_index_vecs
-        .iter()
-        .flat_map(|v| v.iter())
-        .chain(output_index_vec.iter())
-        .flat_map(|s| s.chars())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .map(|c| c.to_string())
-        .collect();
-
-    let loop_order = if loop_order.is_empty() {
-        &indices.iter().map(|index| (index.clone(), 0)).collect()
-    } else {
-        loop_order
-    };
-
-    let mut splits = splits.clone();
-    for index in &indices {
-        splits.entry(index.clone()).or_insert_with(Vec::new);
+        Block { statements }
     }
 
-    // for counting the loop splits processed so far
-    let mut split_counter: HashMap<String, usize> =
-        splits.iter().map(|(dim, split)| (dim.clone(), 0)).collect();
+    fn lower_interior_node(
+        &mut self,
+        node: &Node,
+        output_bound_idents: Vec<String>,
+        store_ident: String,
+    ) -> Block {
+        let Node::Interior {
+            index,
+            op,
+            children,
+            schedule,
+        } = node
+        else {
+            panic!("Expected interior node.")
+        };
 
-    let indexed_in_arrays: Vec<_> = input_index_vecs
-        .iter()
-        .enumerate()
-        .map(|(ind, index)| Expr::Indexed {
-            ident: format!("in{ind}"),
-            index: index.clone(),
-        })
-        .collect();
+        // insert output_bound_idents into table first
+        let output_char_indices = Self::get_char_indices(&node.index());
+        let mut bound_idents: HashMap<char, String> = output_char_indices
+            .iter()
+            .zip(output_bound_idents.iter())
+            .map(|(char_index, bound_ident)| (*char_index, bound_ident.clone()))
+            .collect();
 
-    for index in &indices {
-        // get iterator bound from index, e.g., `i` -> `ni`
-        let bound = format!("n{index}");
-        // TODO: anywhere `flattened.len()>1` can become an assert
-        let flattened = input_index_vecs
+        let child_indices: Vec<String> = children.iter().map(|child| child.index()).collect();
+
+        // create and insert input bound idents into table (not overwriting existing idents)
+        for (ind, char_index) in child_indices
+            .iter()
+            .flat_map(|index| index.chars().collect::<Vec<_>>())
+            .enumerate()
+        {
+            bound_idents.entry(char_index).or_insert_with(|| {
+                let ident = format!("b{}", self.bound_counter);
+                self.bound_counter += 1;
+                ident
+            });
+        }
+
+        let mut all_char_indices: Vec<char> = bound_idents.keys().map(|c| *c).collect();
+        all_char_indices.sort();
+
+        let mut schedule = schedule.clone(); // Can we avoid this?
+
+        if schedule.loop_order.is_empty() {
+            schedule.loop_order = all_char_indices
+                .iter()
+                .map(|index| (index.clone(), 0))
+                .collect();
+        }
+
+        // create idents for base iterators (splits to be affixed with `_{ind}`)
+        let base_iterator_idents: HashMap<char, String> = all_char_indices
             .iter()
             .enumerate()
-            .flat_map(|(input_ind, input_index_vec)| {
-                input_index_vec
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, ch)| *ch == index)
-                    .map(move |(dim, _)| (input_ind, dim))
+            .map(|(ind, char_index)| (*char_index, format!("i{}", ind + self.iterator_counter)))
+            .collect();
+        self.iterator_counter += base_iterator_idents.len();
+
+        // create store ident for each child
+        let child_store_idents: Vec<String> = children
+            .iter()
+            .enumerate()
+            .map(|(ind, child)| format!("s{}", ind + self.store_counter))
+            .collect();
+        self.store_counter += child_store_idents.len();
+
+        // create split factor idents
+        let split_factor_idents: HashMap<char, Vec<String>> = schedule
+            .splits
+            .iter()
+            .map(|(char_index, split_list)| {
+                (
+                    *char_index,
+                    split_list
+                        .iter()
+                        .enumerate()
+                        .map(|(ind, _split_factor)| {
+                            let split_factor_ident = format!(
+                                "{}_{ind}_{}",
+                                bound_idents[char_index], self.split_factor_count
+                            );
+                            self.split_factor_count += 1;
+                            split_factor_ident
+                        })
+                        .collect(),
+                )
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        let (input_ind, dim) = flattened[0]; // TODO: What if this fails?
-        statements.push(Statement::Declaration {
-            ident: bound,
-            value: Expr::ArrayDim {
-                ident: format!("in{input_ind}"),
-                dim,
-            },
-            type_: Type::Int,
-        });
-        if let Some(split_factors) = splits.get(index) {
-            for (ind, factor) in split_factors.iter().enumerate() {
-                statements.push(Statement::Declaration {
-                    ident: format!("n{index}{ind}"),
-                    value: Expr::Int(*factor),
-                    type_: Type::Int,
-                });
-            }
-        }
-    }
-
-    statements.push(Statement::Declaration {
-        ident: "out".to_string(),
-        value: Expr::Alloc {
-            initial_value,
-            shape: output_index_vec.iter().map(|c| format!("n{c}")).collect(),
-        },
-        type_: Type::Array,
-    });
-
-    let indexed_out_expr = Expr::Indexed {
-        ident: "out".to_string(),
-        index: output_index_vec,
-    };
-
-    let partial_op_expr = Expr::Op {
-        op: op,
-        inputs: indexed_in_arrays,
-    };
-
-    let op = Statement::Assignment {
-        left: indexed_out_expr.clone(),
-        right: Expr::Op {
-            op: op,
-            inputs: vec![indexed_out_expr, partial_op_expr],
-        },
-    };
-
-    let loop_stack = loop_order
-        .iter()
-        .rev()
-        .map(|(index, rank)| {
-            let (base_index, index, bound) = match rank {
-                0 => {
-                    let mut bound = format!("n{index}");
-                    let loop_splits = &splits[index];
-                    if loop_splits.len() > 0 {
-                        let n_loop_splits = loop_splits.len();
-                        let tile_width_string = format!(
-                            "({})",
-                            (0..n_loop_splits)
-                                .map(|i| format!("n{index}{i}"))
-                                .collect::<Vec<_>>()
-                                .join(" * ")
-                        );
-                        bound = format!("({bound} + {tile_width_string} - 1)/{tile_width_string}");
-                    }
-                    (index.to_string(), index.to_string(), bound)
-                }
-                _ => {
-                    let base_index = index.clone();
-                    let index = format!("{base_index}{}", rank - 1);
-
-                    (base_index.to_string(), index.to_string(), format!("n{index}"))
-                },
-
-            };
-
-            *split_counter
-                .get_mut(&base_index)
-                .expect("Could not find expected loop split count") += 1;
-
-            // index reconstruction logic, to be performed on innermost loop of a split "family"
-            let n_index_family_loops = splits[&base_index].len() + 1;
-            let body = if split_counter[&base_index] == 1 && n_index_family_loops > 1 {
-                let n_loop_splits_total = splits
-                    .get(&base_index)
-                    .expect("Could not find expected loop splits")
-                    .len();
-
-                let tile_width_string = format!(
-                    "({})",
-                    (0..n_loop_splits_total)
-                        .map(|i| format!("n{base_index}{i}"))
-                        .collect::<Vec<_>>()
-                        .join(" * ")
-                );
-
-                let interim_loop_element_width_strings = (0..n_loop_splits_total - 1)
-                    .map(|ind| format!(" + n{base_index}{ind} * {base_index}{ind}"))
-                    .collect::<Vec<_>>()
-                    .join("");
-
-                vec![
-                    Statement::Declaration {
-                        ident: base_index.clone(),
-                        value: Expr::Str(format!(
-                            "{base_index} * {tile_width_string}{interim_loop_element_width_strings} + {base_index}{}",
-                            n_loop_splits_total - 1
-                        )),
+        // create assignment statement for each split factor ident
+        let split_factor_assignment_statements: Vec<Statement> = schedule
+            .splits
+            .iter()
+            .flat_map(|(char_index, split_factors)| {
+                split_factors
+                    .iter()
+                    .zip(split_factor_idents[char_index].iter())
+                    .map(|(factor, ident)| Statement::Declaration {
+                        ident: ident.clone(),
+                        value: Expr::Int(*factor),
                         type_: Type::Int,
-                    },
-                    Statement::Skip {
-                        index: base_index.clone(),
-                        bound: format!("n{}", base_index.clone())
-                    },
-                ]
-            } else {
-                vec![]
-            };
+                    })
+            })
+            .collect();
 
-            Statement::Loop {
-                index,
-                bound: Expr::Ident(bound),
-                body: Block {
-                    statements: body,
-                }
-            }
-        })
-        .fold(op.clone(), |mut loop_stack, mut loop_| {
-            if let Statement::Loop{ ref mut body, .. } = loop_ {
-                body.statements.push(loop_stack);
-            }
-            loop_
-        });
+        let alloc_statement = Statement::Declaration {
+            ident: store_ident.clone(),
+            value: Expr::Alloc {
+                initial_value: 0.,
+                //shape: index.chars().map(|c| output_bound_idents[&c].clone()).collect(),
+                shape: output_bound_idents.clone(),
+            },
+            type_: Type::Array,
+        };
 
-    statements.push(loop_stack);
+        // TODO: The mapping should probably be done in the present function instead of passing
+        //       the hashmap here.
+        let op_statement = Self::create_op_statement(
+            op,
+            &base_iterator_idents,
+            &child_store_idents,
+            &child_indices,
+            store_ident,
+            &index,
+        );
 
-    Block { statements }
-}
+        let loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
+            &schedule,
+            &base_iterator_idents,
+            &bound_idents,
+            &split_factor_idents,
+        );
 
-impl IndexExpr {
-    /// Returns index vec for each input, index vec for output, op char
-    fn get_index_vecs_op_char_and_init_value(&self) -> (Vec<Vec<String>>, Vec<String>, char, f32) {
-        let IndexExpr {
-            op: scalar_op,
-            out: output_index,
-            schedule: _,
-        } = self;
-        let (input_index_vec, op_char, init_value) =
-            scalar_op.get_index_vecs_op_char_and_init_value();
-        (
-            input_index_vec,
-            output_index.array_index_strings(),
-            op_char,
-            init_value,
-        )
-    }
-}
+        let loop_stack: Statement =
+            loop_statements
+                .into_iter()
+                .fold(op_statement, |mut loop_stack, mut loop_| {
+                    if let Statement::Loop { ref mut body, .. } = loop_ {
+                        body.statements.push(loop_stack);
+                    }
+                    loop_
+                });
 
-impl ScalarOp {
-    /// Returns index vec for each input and the op char
-    fn get_index_vecs_op_char_and_init_value(&self) -> (Vec<Vec<String>>, char, f32) {
-        match self {
-            ScalarOp::BinaryOp(BinaryOp::Mul(in0_index, in1_index)) => (
-                vec![
-                    in0_index.array_index_strings(),
-                    in1_index.array_index_strings(),
-                ],
-                '*',
-                1.0,
-            ),
-            ScalarOp::BinaryOp(BinaryOp::Add(in0_index, in1_index)) => (
-                vec![
-                    in0_index.array_index_strings(),
-                    in1_index.array_index_strings(),
-                ],
-                '+',
-                0.0,
-            ),
-            ScalarOp::UnaryOp(UnaryOp::Prod(in0_index)) => {
-                (vec![in0_index.array_index_strings()], '*', 1.0)
-            }
-            ScalarOp::UnaryOp(UnaryOp::Accum(in0_index)) => {
-                (vec![in0_index.array_index_strings()], '+', 0.0)
-            }
-            ScalarOp::NoOp(NoOp(in0_index)) => (vec![in0_index.array_index_strings()], '+', 0.0),
+        let child_statements: Vec<Statement> = children
+            .iter()
+            .enumerate()
+            .flat_map(|(ind, child)| {
+                let child_block = self.lower_node(
+                    &child,
+                    child
+                        .index()
+                        .chars()
+                        .map(|c| bound_idents[&c].clone())
+                        .collect(),
+                    child_store_idents[ind].clone(),
+                );
+                child_block.statements
+            })
+            .collect();
+
+        Block {
+            statements: [
+                child_statements,
+                split_factor_assignment_statements,
+                vec![alloc_statement, loop_stack],
+            ]
+            .concat(),
         }
     }
-}
 
-impl Symbol {
-    fn array_index_strings(&self) -> Vec<String> {
-        self.0.chars().map(|c| c.to_string()).collect()
+    fn create_op_statement(
+        op: &ScalarOp,
+        base_iterator_idents: &HashMap<char, String>,
+        child_store_idents: &Vec<String>,
+        child_indices: &Vec<String>,
+        store_ident: String,
+        index: &String,
+    ) -> Statement {
+        assert_eq!(child_store_idents.len(), child_indices.len());
+
+        let op_char = match op {
+            ScalarOp::UnaryOp(UnaryOp::Accum(_)) | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => '+',
+            ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
+            ScalarOp::NoOp(_) => ' ', // never used
+        };
+
+        let out_expr = Expr::Indexed {
+            ident: store_ident,
+            index: index
+                .chars()
+                .map(|c| base_iterator_idents[&c].clone())
+                .collect(),
+        };
+
+        let mut in_exprs: Vec<Expr> = child_store_idents
+            .iter()
+            .zip(child_indices.iter())
+            .map(|(ident, index)| Expr::Indexed {
+                ident: ident.clone(),
+                index: index
+                    .chars()
+                    .map(|c| base_iterator_idents[&c].clone())
+                    .collect(),
+            })
+            .collect();
+
+        if in_exprs.len() == 1 {
+            // Pushing to front here shouldn't be a problem unless we start allowing ops of
+            // arbitrary inputs.
+            in_exprs.insert(0, out_expr.clone());
+        }
+        assert_eq!(
+            in_exprs.len(),
+            2,
+            "Expected exactly two operands for op [{op_char}]."
+        );
+
+        Statement::Assignment {
+            left: out_expr,
+            right: Expr::Op {
+                op: op_char,
+                inputs: in_exprs,
+            },
+        }
     }
-}
 
-fn split_index_string(s: &String) -> Vec<String> {
-    s.chars().map(|c| c.to_string()).collect()
+    fn create_empty_loop_statements(
+        schedule: &Schedule,
+        base_iterator_idents: &HashMap<char, String>,
+        bound_idents: &HashMap<char, String>,
+        split_factor_idents: &HashMap<char, Vec<String>>,
+    ) -> Vec<Statement> {
+        let mut statements = vec![];
+
+        let mut needs_index_reconstruction: HashSet<char> = schedule
+            .splits
+            .iter()
+            .filter(|(char_index, splits_factors)| splits_factors.len() > 0)
+            .map(|(char_index, splits_factors)| *char_index)
+            .collect();
+
+        for (char_index, rank) in schedule.loop_order.iter().rev() {
+            let splits = schedule.splits.get(char_index);
+
+            let index = if splits.is_some() && *rank > 0 {
+                format!(
+                    "{}_{}",
+                    base_iterator_idents[&char_index].clone(),
+                    (*rank - 1)
+                )
+            } else {
+                base_iterator_idents[&char_index].clone()
+            };
+
+            let bound = match (splits, rank) {
+                (None, _) => Expr::Ident(bound_idents[&char_index].clone()),
+                (Some(splits), 0) => Self::create_split_bound_expr(
+                    &bound_idents[&char_index],
+                    &split_factor_idents[&char_index],
+                ),
+                (Some(splits), rank) => {
+                    Expr::Ident(split_factor_idents[&char_index][*rank - 1].clone())
+                }
+            };
+
+            statements.push(Statement::Loop {
+                index: index.clone(),
+                bound: bound,
+                body: Block {
+                    statements: if needs_index_reconstruction.remove(&char_index) {
+                        Self::create_index_reconstruction_statements(
+                            &base_iterator_idents[&char_index],
+                            &bound_idents[&char_index],
+                            &split_factor_idents[&char_index],
+                            *rank,
+                        )
+                    } else {
+                        vec![]
+                    },
+                },
+            });
+        }
+
+        statements
+    }
+
+    fn create_split_bound_expr(
+        base_bound_ident: &String,
+        split_factors_idents: &Vec<String>,
+    ) -> Expr {
+        let tile_width_expr = Expr::Op {
+            op: '*',
+            inputs: split_factors_idents
+                .iter()
+                .map(|ident| Expr::Ident(ident.clone()))
+                .collect(),
+        };
+
+        let numerator = Expr::Op {
+            op: '-',
+            inputs: vec![
+                Expr::Op {
+                    op: '+',
+                    inputs: vec![
+                        Expr::Ident(base_bound_ident.clone()),
+                        tile_width_expr.clone(),
+                    ],
+                },
+                Expr::Int(1),
+            ],
+        };
+
+        Expr::Op {
+            op: '/',
+            inputs: vec![numerator, tile_width_expr],
+        }
+    }
+
+    fn create_index_reconstruction_statements(
+        base_iterator_ident: &String,
+        base_bound_ident: &String,
+        split_factors_idents: &Vec<String>,
+        rank: usize,
+    ) -> Vec<Statement> {
+        let mut factor_loop_widths: Vec<Expr> = split_factors_idents
+            .iter()
+            .map(|ident| Expr::Ident(ident.clone()))
+            .collect();
+
+        // number of elements per iteration of base loop
+        let base_loop_tile_width = Expr::Op {
+            op: '*',
+            inputs: factor_loop_widths.clone(),
+        };
+
+        let mut widths = factor_loop_widths;
+        widths.insert(0, base_loop_tile_width);
+
+        let mut factor_loop_iterator: Vec<Expr> = split_factors_idents
+            .iter()
+            .enumerate()
+            .map(|(ind, ident)| Expr::Ident(format!("{}_{ind}", base_iterator_ident.clone())))
+            .collect();
+
+        let mut iterators = factor_loop_iterator;
+        iterators.insert(0, Expr::Ident(base_iterator_ident.clone()));
+
+        // remove present loop before total width calculation
+        let current_iterator = iterators.remove(rank);
+        widths.remove(rank);
+
+        assert_eq!(widths.len(), iterators.len());
+        let mut total_width: Vec<Expr> = widths
+            .into_iter()
+            .zip(iterators.into_iter())
+            .map(|(width, iterator)| Expr::Op {
+                op: '*',
+                inputs: vec![width, iterator],
+            })
+            .collect();
+
+        total_width.push(current_iterator);
+
+        let reconstructed_index = Expr::Op {
+            op: '+',
+            inputs: total_width,
+        };
+
+        vec![
+            Statement::Declaration {
+                ident: base_iterator_ident.clone(),
+                value: reconstructed_index,
+                type_: Type::Int,
+            },
+            Statement::Skip {
+                index: base_iterator_ident.clone(),
+                bound: base_bound_ident.clone(),
+            },
+        ]
+    }
 }
