@@ -100,33 +100,17 @@ impl Lowerer {
 
         self.input_idents.push(store_ident.clone());
 
-        // push array arg
-        self.input_args.push(Arg {
-            type_: Type::Array,
-            ident: store_ident.clone(),
-            mutable: false,
-        });
+        let (output_array_args, dim_arg_declarations) = self.create_args_and_ident_declarations(
+            store_ident,
+            output_bound_idents.clone(),
+            false,
+        );
 
-        // push dim args and create declaration statements
-        let mut statements = vec![];
-        for (ind, bound_ident) in output_bound_idents.iter().enumerate() {
-            let arg_ident = format!("{}_{}", store_ident.clone(), ind);
+        self.input_args.extend(output_array_args);
 
-            // map nice dim arg names to messy generated bound idents
-            statements.push(Statement::Declaration {
-                ident: bound_ident.clone(),
-                value: Expr::Ident(arg_ident.clone()),
-                type_: Type::Int,
-            });
-
-            self.input_args.push(Arg {
-                type_: Type::Int,
-                ident: arg_ident,
-                mutable: false,
-            });
+        Block {
+            statements: dim_arg_declarations,
         }
-
-        Block { statements }
     }
 
     fn lower_interior_node(
