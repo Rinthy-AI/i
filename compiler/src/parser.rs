@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
+    pub(crate) fn parse_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
         let index_expr = self.parse_unscheduled_index_expr()?;
         match self.tokenizer.peek()[0] {
             Token::Bar => Ok(IndexExpr {
