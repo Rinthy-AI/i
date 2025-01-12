@@ -13,28 +13,21 @@ impl Node {
 
     fn from_index_expr(expr: &IndexExpr) -> Self {
         let IndexExpr { op, out, schedule } = expr;
+        let child_indices = match op {
+            ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
+            | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1)) => vec![in0.0.clone(), in1.0.clone()],
+            ScalarOp::UnaryOp(UnaryOp::Accum(in0))
+            | ScalarOp::UnaryOp(UnaryOp::Prod(in0))
+            | ScalarOp::NoOp(NoOp(in0)) => vec![in0.0.clone()],
+        };
         Node::Interior {
             index: out.0.clone(),
+            child_indices: child_indices.clone(),
             op: op.clone(),
-            children: match op {
-                ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
-                | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1)) => vec![
-                    Node::Leaf {
-                        index: in0.0.clone(),
-                    },
-                    Node::Leaf {
-                        index: in1.0.clone(),
-                    },
-                ],
-                ScalarOp::UnaryOp(UnaryOp::Accum(in0)) | ScalarOp::UnaryOp(UnaryOp::Prod(in0)) => {
-                    vec![Node::Leaf {
-                        index: in0.0.clone(),
-                    }]
-                }
-                ScalarOp::NoOp(NoOp(in0)) => vec![Node::Leaf {
-                    index: in0.0.clone(),
-                }],
-            },
+            children: child_indices
+                .into_iter()
+                .map(|index| Node::Leaf { index })
+                .collect(),
             schedule: schedule.clone(),
         }
     }

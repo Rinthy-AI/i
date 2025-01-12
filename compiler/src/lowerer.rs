@@ -118,6 +118,7 @@ impl Lowerer {
     ) -> Block {
         let Node::Interior {
             index,
+            child_indices,
             op,
             children,
             schedule,
@@ -133,8 +134,6 @@ impl Lowerer {
             .zip(output_bound_idents.iter())
             .map(|(char_index, bound_ident)| (*char_index, bound_ident.clone()))
             .collect();
-
-        let child_indices: Vec<String> = children.iter().map(|child| child.index()).collect();
 
         // create and insert input bound idents into table (not overwriting existing idents)
         for (ind, char_index) in child_indices
@@ -262,9 +261,8 @@ impl Lowerer {
             .flat_map(|(ind, child)| {
                 let child_block = self.lower_node(
                     &child,
-                    child
-                        .index()
-                        .chars()
+                    Self::get_char_indices(&child_indices[ind])
+                        .iter()
                         .map(|c| bound_idents[&c].clone())
                         .collect(),
                     child_store_idents[ind].clone(),
