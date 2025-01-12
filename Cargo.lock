@@ -15,8 +15,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "framework"
+version = "0.1.0"
+dependencies = [
+ "compiler",
+]
+
+[[package]]
 name = "macros"
 version = "0.1.0"
 dependencies = [
  "compiler",
+ "framework",
 ]
