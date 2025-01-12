@@ -1,6 +1,4 @@
 [workspace]
 members = [
-    "compiler",
-    "macros",
-    "example",
+    "compiler", "example", "framework", "macros",
 ]
