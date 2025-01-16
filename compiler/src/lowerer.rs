@@ -255,6 +255,7 @@ impl Lowerer {
             &base_iterator_idents,
             &bound_idents,
             &split_factor_idents,
+            &index,
         );
 
         let loop_stack: Statement =
@@ -355,6 +356,7 @@ impl Lowerer {
         base_iterator_idents: &HashMap<char, String>,
         bound_idents: &HashMap<char, String>,
         split_factor_idents: &HashMap<char, Vec<String>>,
+        index: &String,
     ) -> Vec<Statement> {
         let mut statements = vec![];
 
@@ -365,6 +367,7 @@ impl Lowerer {
             .map(|(char_index, splits_factors)| *char_index)
             .collect();
 
+        let output_char_indices: HashSet<char> = index.chars().collect();
         for (char_index, rank) in schedule.loop_order.iter().rev() {
             let splits = schedule.splits.get(char_index);
 
@@ -404,6 +407,7 @@ impl Lowerer {
                         vec![]
                     },
                 },
+                parallel: output_char_indices.contains(&char_index),
             });
         }
 

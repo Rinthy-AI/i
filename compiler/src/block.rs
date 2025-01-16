@@ -56,6 +56,7 @@ pub enum Statement {
         index: String,
         bound: Expr,
         body: Block,
+        parallel: bool,
     },
     Return {
         value: Expr,
