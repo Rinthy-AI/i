@@ -7,8 +7,7 @@ use crate::graph::{Graph, Node};
 pub struct Lowerer {
     input_args: Vec<Arg>,
     input_array_counter: usize,
-    bound_counter: usize,
-    iterator_counter: usize,
+    base_loop_counter: usize,
     store_counter: usize,
     split_factor_count: usize,
 }
@@ -18,8 +17,7 @@ impl Lowerer {
         Lowerer {
             input_args: Vec::new(),
             input_array_counter: 0,
-            bound_counter: 0,
-            iterator_counter: 0,
+            base_loop_counter: 0,
             store_counter: 0,
             split_factor_count: 0,
         }
@@ -32,150 +30,135 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let indices = Self::get_char_indices(&graph.root.index());
-
-        // create ident for store
-        let store_ident = format!("out");
-
-        let mut bound_idents = HashMap::<char, String>::new();
-        for (ind, index) in indices.iter().enumerate() {
-            bound_idents.insert(*index, format!("b{}", ind + self.bound_counter));
-        }
-        self.bound_counter += bound_idents.len();
-
-        let output_bound_idents: Vec<String> = graph
-            .root
-            .index()
-            .chars()
-            .map(|c| bound_idents[&c].clone())
-            .collect();
-
-        let nodes_block =
-            self.lower_node(&graph.root, output_bound_idents.clone(), store_ident, false);
-
-        let (output_array_args, dim_arg_declarations) =
-            self.create_args_and_ident_declarations(None, output_bound_idents.clone(), true);
-
-        self.input_args.extend(output_array_args);
-
-        let mut function_statement = Statement::Function {
-            ident: "f".to_string(),
-            args: self.input_args.clone(),
-            body: Block {
-                statements: [dim_arg_declarations, nodes_block.statements].concat(),
-            },
-        };
-
+        let (block, bound_and_iterator_idents, store_ident) = self.lower_node(&graph.root, true);
         Block {
-            statements: vec![function_statement],
+            statements: vec![Statement::Function {
+                ident: "f".to_string(),
+                args: self.input_args.clone(),
+                body: Block {
+                    statements: block.statements,
+                },
+            }],
         }
     }
 
+    /// Return the block, (bound, iterator) ident map, and store ident
     fn lower_node(
         &mut self,
         node: &Node,
-        output_bound_idents: Vec<String>,
-        store_ident: String,
-        alloc_store: bool, // set to false if store is output
-    ) -> Block {
+        root: bool,
+    ) -> (Block, HashMap<char, (String, String)>, String) {
         match node {
-            Node::Leaf { .. } => self.lower_leaf_node(node, output_bound_idents, store_ident),
-            Node::Interior { .. } => {
-                self.lower_interior_node(node, output_bound_idents, store_ident, alloc_store)
-            }
+            Node::Leaf { index, .. } => self.lower_leaf_node(&index),
+            Node::Interior {
+                index,
+                op,
+                children,
+                schedule,
+            } => self.lower_interior_node(index, op, children, schedule, root),
         }
     }
 
     fn lower_leaf_node(
         &mut self,
-        node: &Node,
-        output_bound_idents: Vec<String>,
-        store_ident: String,
-    ) -> Block {
-        let Node::Leaf { index } = node else {
-            panic!("Expected leaf node.")
-        };
+        index: &String,
+    ) -> (Block, HashMap<char, (String, String)>, String) {
+        let arg_ident = format!("in{}", self.input_array_counter);
+        self.input_array_counter += 1;
 
-        let (output_array_args, dim_arg_declarations) = self.create_args_and_ident_declarations(
-            Some(store_ident),
-            output_bound_idents.clone(),
-            false,
-        );
+        let char_indices = Self::get_char_indices(index);
 
-        self.input_args.extend(output_array_args);
+        let loop_idents: HashMap<_, _> = char_indices
+            .iter()
+            .map(|char_index| {
+                let bound_ident = format!("b{}", self.base_loop_counter);
+                let iterator_ident = format!("i{}", self.base_loop_counter);
+                self.base_loop_counter += 1;
+                (*char_index, (bound_ident, iterator_ident))
+            })
+            .collect();
 
-        Block {
-            statements: dim_arg_declarations,
-        }
+        // push array arg
+        self.input_args.push(Arg {
+            type_: Type::ArrayRef(false),
+            ident: arg_ident.clone(),
+        });
+
+        // push dim args
+        let dim_args = (0..char_indices.len()).map(|ind| Arg {
+            type_: Type::Int(false),
+            ident: format!("{}_{ind}", arg_ident.clone()),
+        });
+        self.input_args.extend(dim_args.clone());
+
+        let bound_ident_declaration_statements: Vec<Statement> = char_indices
+            .iter()
+            .zip(dim_args)
+            .map(|(c, arg)| Statement::Declaration {
+                ident: loop_idents[&c].0.clone(), // bound ident
+                value: Expr::Ident(arg.ident),
+                type_: arg.type_,
+            })
+            .collect();
+
+        // TODO drop the block from here
+        (
+            Block {
+                statements: bound_ident_declaration_statements,
+            },
+            loop_idents,
+            arg_ident,
+        )
     }
 
     fn lower_interior_node(
         &mut self,
-        node: &Node,
-        output_bound_idents: Vec<String>,
-        store_ident: String,
-        alloc_store: bool, // set to false if store is output
-    ) -> Block {
-        let Node::Interior {
-            index,
-            op,
-            children,
-            schedule,
-        } = node
-        else {
-            panic!("Expected interior node.")
+        index: &String,
+        op: &ScalarOp,
+        children: &Vec<Node>,
+        schedule: &Schedule,
+        root: bool,
+    ) -> (Block, HashMap<char, (String, String)>, String) {
+        let (child_block, loop_idents, store_idents): (
+            Block,
+            HashMap<char, (String, String)>,
+            Vec<String>,
+        ) = children.iter().fold(
+            (Block { statements: vec![] }, HashMap::new(), vec![]),
+            |(mut block, mut loop_idents, mut store_idents), child| {
+                let (child_block, mut child_loop_idents, child_store_ident) =
+                    self.lower_node(&child, false);
+                let child_loop_idents: HashMap<_, _> = child_loop_idents
+                    .into_iter()
+                    .filter(|(c, _)| !loop_idents.contains_key(c))
+                    .collect();
+
+                block.statements.extend(child_block.statements);
+                loop_idents.extend(child_loop_idents);
+                store_idents.push(child_store_ident);
+                (block, loop_idents, store_idents)
+            },
+        );
+
+        let store_ident = match root {
+            true => "out".to_string(),
+            false => {
+                let ident = format!("s{}", self.store_counter);
+                self.store_counter += 1;
+                ident
+            }
         };
 
-        // insert output_bound_idents into table first
-        let output_char_indices = Self::get_char_indices(&node.index());
-        let mut bound_idents: HashMap<char, String> = output_char_indices
-            .iter()
-            .zip(output_bound_idents.iter())
-            .map(|(char_index, bound_ident)| (*char_index, bound_ident.clone()))
-            .collect();
-
-        let child_indices: Vec<String> = children.iter().map(|child| child.index()).collect();
-
-        // create and insert input bound idents into table (not overwriting existing idents)
-        for (ind, char_index) in child_indices
-            .iter()
-            .flat_map(|index| index.chars().collect::<Vec<_>>())
-            .enumerate()
-        {
-            bound_idents.entry(char_index).or_insert_with(|| {
-                let ident = format!("b{}", self.bound_counter);
-                self.bound_counter += 1;
-                ident
-            });
-        }
-
-        let mut all_char_indices: Vec<char> = bound_idents.keys().map(|c| *c).collect();
+        let mut all_char_indices: Vec<char> = loop_idents.keys().map(|c| *c).collect();
         all_char_indices.sort();
 
         let mut schedule = schedule.clone(); // Can we avoid this?
-
         if schedule.loop_order.is_empty() {
             schedule.loop_order = all_char_indices
                 .iter()
                 .map(|index| (index.clone(), 0))
                 .collect();
         }
-
-        // create idents for base iterators (splits to be affixed with `_{ind}`)
-        let base_iterator_idents: HashMap<char, String> = all_char_indices
-            .iter()
-            .enumerate()
-            .map(|(ind, char_index)| (*char_index, format!("i{}", ind + self.iterator_counter)))
-            .collect();
-        self.iterator_counter += base_iterator_idents.len();
-
-        // create store ident for each child
-        let child_store_idents: Vec<String> = children
-            .iter()
-            .enumerate()
-            .map(|(ind, child)| format!("s{}", ind + self.store_counter))
-            .collect();
-        self.store_counter += child_store_idents.len();
 
         // create split factor idents
         let split_factor_idents: HashMap<char, Vec<String>> = schedule
@@ -190,7 +173,7 @@ impl Lowerer {
                         .map(|(ind, _split_factor)| {
                             let split_factor_ident = format!(
                                 "{}_{ind}_{}",
-                                bound_idents[char_index], self.split_factor_count
+                                loop_idents[char_index].0, self.split_factor_count
                             );
                             self.split_factor_count += 1;
                             split_factor_ident
@@ -220,28 +203,43 @@ impl Lowerer {
             ident: store_ident.clone(),
             value: Expr::Alloc {
                 initial_value: 0.,
-                //shape: index.chars().map(|c| output_bound_idents[&c].clone()).collect(),
-                shape: output_bound_idents.clone(),
+                shape: index.chars().map(|c| loop_idents[&c].0.clone()).collect(),
             },
             type_: Type::Array(true),
         };
 
         // TODO: The mapping should probably be done in the present function instead of passing
         //       the hashmap here.
+        // TODO: stop splitting ident map
         let op_statement = Self::create_op_statement(
             op,
-            &bound_idents,
-            &base_iterator_idents,
-            &child_store_idents,
-            &child_indices,
-            store_ident,
+            // bound_idents
+            &loop_idents
+                .iter()
+                .map(|(c, (ident, _))| (*c, ident.clone()))
+                .collect(),
+            // base_iterator_idents
+            &loop_idents
+                .iter()
+                .map(|(c, (_, ident))| (*c, ident.clone()))
+                .collect(),
+            &store_idents,
+            &children.iter().map(|child| child.index()).collect(),
+            &store_ident,
             &index,
         );
 
+        // TODO: stop splitting ident map
         let loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
             &schedule,
-            &base_iterator_idents,
-            &bound_idents,
+            &loop_idents
+                .iter()
+                .map(|(c, (_, ident))| (*c, ident.clone()))
+                .collect(),
+            &loop_idents
+                .iter()
+                .map(|(c, (ident, _))| (*c, ident.clone()))
+                .collect(),
             &split_factor_idents,
             &index,
         );
@@ -256,37 +254,32 @@ impl Lowerer {
                     loop_
                 });
 
-        let child_statements: Vec<Statement> = children
-            .iter()
-            .enumerate()
-            .flat_map(|(ind, child)| {
-                let child_block = self.lower_node(
-                    &child,
-                    child
-                        .index()
-                        .chars()
-                        .map(|c| bound_idents[&c].clone())
-                        .collect(),
-                    child_store_idents[ind].clone(),
-                    true,
-                );
-                child_block.statements
-            })
-            .collect();
+        if root {
+            // push array arg
+            self.input_args.push(Arg {
+                type_: Type::ArrayRef(true),
+                ident: store_ident.clone(),
+            });
 
-        Block {
+            // push dim args
+            let dim_args = (0..Self::get_char_indices(&index).len()).map(|ind| Arg {
+                type_: Type::Int(false),
+                ident: format!("{}_{ind}", store_ident.clone()),
+            });
+            self.input_args.extend(dim_args.clone());
+        };
+
+        let block = Block {
             statements: [
-                child_statements,
+                child_block.statements,
                 split_factor_assignment_statements,
-                if alloc_store {
-                    vec![alloc_statement]
-                } else {
-                    vec![]
-                }, // TODO: Make not hacky.
+                if root { vec![] } else { vec![alloc_statement] }, // TODO: Make not hacky.
                 vec![loop_stack],
             ]
             .concat(),
-        }
+        };
+
+        (block, loop_idents, store_ident)
     }
 
     fn create_op_statement(
@@ -295,7 +288,7 @@ impl Lowerer {
         base_iterator_idents: &HashMap<char, String>,
         child_store_idents: &Vec<String>,
         child_indices: &Vec<String>,
-        store_ident: String,
+        store_ident: &String,
         index: &String,
     ) -> Statement {
         assert_eq!(child_store_idents.len(), child_indices.len());
@@ -307,7 +300,7 @@ impl Lowerer {
         };
 
         let out_expr = Expr::Indexed {
-            ident: store_ident,
+            ident: store_ident.clone(),
             index: Box::new(Self::create_affine_index(
                 index
                     .chars()
@@ -535,7 +528,7 @@ impl Lowerer {
 
     fn create_args_and_ident_declarations(
         &mut self,
-        store_ident: Option<String>,
+        store_ident: Option<&String>,
         bound_idents: Vec<String>,
         mutable: bool,
     ) -> (Vec<Arg>, Vec<Statement>) {
@@ -554,32 +547,6 @@ impl Lowerer {
             type_: Type::ArrayRef(if mutable { true } else { false }),
             ident: ident.clone(),
         });
-
-        // map nice dim arg names to messy generated bound idents
-        if let Some(store_ident) = store_ident {
-            statements.push(Statement::Declaration {
-                ident: store_ident,
-                value: Expr::Ident(ident.clone()),
-                type_: Type::ArrayRef(if mutable { true } else { false }),
-            });
-        }
-
-        // push dim args and create declaration statements
-        for (ind, bound_ident) in bound_idents.iter().enumerate() {
-            let dim_arg_ident = format!("{}_{}", ident.clone(), ind);
-
-            args.push(Arg {
-                type_: Type::Int(false),
-                ident: dim_arg_ident.clone(),
-            });
-
-            // map nice dim arg names to messy generated bound idents
-            statements.push(Statement::Declaration {
-                ident: bound_ident.clone(),
-                value: Expr::Ident(dim_arg_ident),
-                type_: Type::Int(false),
-            });
-        }
 
         (args, statements)
     }
