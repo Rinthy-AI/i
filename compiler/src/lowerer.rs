@@ -505,25 +505,34 @@ impl Lowerer {
 
     fn create_affine_index(indices: Vec<String>, bounds: Vec<String>) -> Expr {
         let d = indices.len();
-        let mut sum_expr = Expr::Int(0);
+        let mut sum_expr = None;
         for k in 0..d {
-            let mut product_expr = Expr::Int(1);
+            let mut product_expr = None;
             for m in (k + 1)..d {
-                product_expr = Expr::Op {
-                    op: '*',
-                    inputs: vec![product_expr, Expr::Ident(bounds[m].clone())],
-                };
+                product_expr = Some(match product_expr {
+                    Some(expr) => Expr::Op {
+                        op: '*',
+                        inputs: vec![expr, Expr::Ident(bounds[m].clone())],
+                    },
+                    None => Expr::Ident(bounds[m].clone()),
+                });
             }
-            let partial_expr = Expr::Op {
-                op: '*',
-                inputs: vec![Expr::Ident(indices[k].clone()), product_expr],
+            let partial_expr = match product_expr {
+                Some(expr) => Expr::Op {
+                    op: '*',
+                    inputs: vec![Expr::Ident(indices[k].clone()), expr],
+                },
+                None => Expr::Ident(indices[k].clone()),
             };
-            sum_expr = Expr::Op {
-                op: '+',
-                inputs: vec![sum_expr, partial_expr],
-            };
+            sum_expr = Some(match sum_expr {
+                Some(expr) => Expr::Op {
+                    op: '+',
+                    inputs: vec![expr, partial_expr],
+                },
+                None => partial_expr,
+            });
         }
-        sum_expr
+        sum_expr.unwrap_or(Expr::Int(0)) // Return 0 if no indices are provided
     }
 
     fn create_args_and_ident_declarations(
