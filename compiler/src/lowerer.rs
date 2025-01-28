@@ -30,24 +30,29 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let (block, bound_and_iterator_idents, store_ident) = self.lower_node(&graph.root, true);
+        let (def_block, exec_block, bound_and_iterator_idents, store_ident) =
+            self.lower_node(&graph.root, true);
         Block {
-            statements: vec![Statement::Function {
-                ident: "f".to_string(),
-                args: self.input_args.clone(),
-                body: Block {
-                    statements: block.statements,
-                },
-            }],
+            statements: [
+                def_block.statements,
+                vec![Statement::Function {
+                    ident: "f".to_string(),
+                    args: self.input_args.clone(),
+                    body: Block {
+                        statements: exec_block.statements,
+                    },
+                }],
+            ]
+            .concat(),
         }
     }
 
-    /// Return the block, (bound, iterator) ident map, and store ident
+    /// Return function def block, exec block, (bound, iterator) ident map, store ident
     fn lower_node(
         &mut self,
         node: &Node,
         root: bool,
-    ) -> (Block, HashMap<char, (String, String)>, String) {
+    ) -> (Block, Block, HashMap<char, (String, String)>, String) {
         match node {
             Node::Leaf { index, .. } => self.lower_leaf_node(&index),
             Node::Interior {
@@ -59,10 +64,11 @@ impl Lowerer {
         }
     }
 
+    /// Return function def block, exec block, (bound, iterator) ident map, store ident
     fn lower_leaf_node(
         &mut self,
         index: &String,
-    ) -> (Block, HashMap<char, (String, String)>, String) {
+    ) -> (Block, Block, HashMap<char, (String, String)>, String) {
         let arg_ident = format!("in{}", self.input_array_counter);
         self.input_array_counter += 1;
 
@@ -91,9 +97,10 @@ impl Lowerer {
         });
         self.input_args.extend(dim_args.clone());
 
-        (Block::EMPTY, loop_idents, arg_ident)
+        (Block::EMPTY, Block::EMPTY, loop_idents, arg_ident)
     }
 
+    /// Return function definition block, exec block, (bound, iterator) ident map, and store ident
     fn lower_interior_node(
         &mut self,
         index: &String,
@@ -101,25 +108,27 @@ impl Lowerer {
         children: &Vec<Node>,
         schedule: &Schedule,
         root: bool,
-    ) -> (Block, HashMap<char, (String, String)>, String) {
-        let (child_block, loop_idents, store_idents): (
+    ) -> (Block, Block, HashMap<char, (String, String)>, String) {
+        let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
+            Block,
             Block,
             HashMap<char, (String, String)>,
             Vec<String>,
         ) = children.iter().fold(
-            (Block { statements: vec![] }, HashMap::new(), vec![]),
-            |(mut block, mut loop_idents, mut store_idents), child| {
-                let (child_block, mut child_loop_idents, child_store_ident) =
+            (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
+            |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents), child| {
+                let (child_def_block, child_exec_block, mut child_loop_idents, child_store_ident) =
                     self.lower_node(&child, false);
                 let child_loop_idents: HashMap<_, _> = child_loop_idents
                     .into_iter()
                     .filter(|(c, _)| !loop_idents.contains_key(c))
                     .collect();
 
-                block.statements.extend(child_block.statements);
+                def_block.statements.extend(child_def_block.statements);
+                exec_block.statements.extend(child_exec_block.statements);
                 loop_idents.extend(child_loop_idents);
-                store_idents.push(child_store_ident);
-                (block, loop_idents, store_idents)
+                child_store_idents.push(child_store_ident);
+                (def_block, exec_block, loop_idents, child_store_idents)
             },
         );
 
@@ -206,7 +215,7 @@ impl Lowerer {
                 .iter()
                 .map(|(c, (_, ident))| (*c, ident.clone()))
                 .collect(),
-            &store_idents,
+            &child_store_idents,
             &children.iter().map(|child| child.index()).collect(),
             &store_ident,
             &index,
@@ -252,17 +261,77 @@ impl Lowerer {
             self.input_args.extend(dim_args.clone());
         };
 
-        let block = Block {
+        let function_ident = format!("_{}", store_ident.clone());
+
+        let def_block = Block {
             statements: [
-                child_block.statements,
-                split_factor_assignment_statements,
-                if root { vec![] } else { vec![alloc_statement] }, // TODO: Make not hacky.
-                vec![loop_stack],
+                child_def_block.statements,
+                vec![Statement::Function {
+                    ident: function_ident.clone(),
+                    args: [
+                        child_store_idents
+                            .iter()
+                            .map(|ident| Arg {
+                                type_: Type::ArrayRef(false),
+                                ident: Expr::Ident(ident.clone()),
+                            })
+                            .collect::<Vec<_>>(),
+                        vec![Arg {
+                            type_: Type::ArrayRef(true),
+                            ident: Expr::Ident(store_ident.clone()),
+                        }],
+                        all_char_indices
+                            .iter()
+                            .map(|c| Arg {
+                                type_: Type::Int(false),
+                                ident: Expr::Ident(loop_idents[c].0.clone()),
+                            })
+                            .collect::<Vec<_>>(),
+                    ]
+                    .concat(),
+                    body: Block {
+                        statements: [split_factor_assignment_statements, vec![loop_stack]].concat(),
+                    },
+                }],
             ]
             .concat(),
         };
 
-        (block, loop_idents, store_ident)
+        let call = Statement::Call {
+            ident: function_ident.clone(),
+            args: [
+                child_store_idents
+                    .iter()
+                    .map(|ident| Arg {
+                        type_: Type::ArrayRef(false),
+                        ident: Expr::Ref(ident.clone(), false),
+                    })
+                    .collect::<Vec<_>>(),
+                vec![Arg {
+                    type_: Type::ArrayRef(true),
+                    ident: Expr::Ref(store_ident.clone(), true),
+                }],
+                all_char_indices
+                    .iter()
+                    .map(|c| Arg {
+                        type_: Type::Int(false),
+                        ident: Expr::Ident(loop_idents[c].0.clone()),
+                    })
+                    .collect::<Vec<_>>(),
+            ]
+            .concat(),
+        };
+
+        let exec_block = Block {
+            statements: [
+                child_exec_block.statements,
+                if root { vec![] } else { vec![alloc_statement] }, // TODO: Make not hacky.
+                vec![call],
+            ]
+            .concat(),
+        };
+
+        (def_block, exec_block, loop_idents, store_ident)
     }
 
     fn create_op_statement(

@@ -79,9 +79,10 @@ fn main() -> Result<(), String> {
 
     // lower
     let block = Lowerer::new().lower(&graph);
+    println!("{:#?}", block);
 
     let code = RustBackend::render(&block);
-    let formatted_code = format_rust_code(format!("fn main() {{ let f = {code};}}"));
+    let formatted_code = format_rust_code(format!("fn main() {{ {code};}}"));
     //let formatted_code = code;
 
     //let formatted_code = format!("{:#?}", block);

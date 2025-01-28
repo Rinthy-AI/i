@@ -13,6 +13,7 @@ pub enum Expr {
     Str(String),
     Int(usize),
     Ident(String),
+    Ref(String, bool), // like Ident(_), but a ref (and tracks mutability)
     Op {
         op: char,
         inputs: Vec<Expr>,
@@ -67,6 +68,10 @@ pub enum Statement {
         args: Vec<Arg>, // type, ident
         body: Block,
     },
+    Call {
+        ident: String,
+        args: Vec<Arg>, // need type info to know whether to render ref
+    }, // This is a Statement because it's only ever used as one
 }
 
 #[derive(Clone, Debug)]

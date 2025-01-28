@@ -37,6 +37,7 @@ impl RustBackend {
             }
             Expr::ArrayDim { ident, dim } => format!("{ident}.shape[{dim}]"),
             Expr::Str(s) | Expr::Ident(s) => s.to_string(),
+            Expr::Ref(s, mutable) => format!("&{}{s}", if *mutable { "mut " } else { "" }),
             Expr::Int(x) => format!("{x}"),
             Expr::Op { op, inputs } => {
                 let prec = |c: char| match c {
@@ -104,8 +105,8 @@ impl RustBackend {
             }
 
             Statement::Function { ident, args, body } => format!(
-                //"fn {ident}({}) {{{}}}",
-                "|{}| {{{}}}",
+                "fn {ident}({}) {{{}}}",
+                //"|{}| {{{}}}",
                 args.iter()
                     .map(|Arg { type_, ident }| {
                         let (Type::Int(mutable) | Type::Array(mutable) | Type::ArrayRef(mutable)) =
@@ -122,6 +123,13 @@ impl RustBackend {
                 Self::render(&body),
             ),
             Statement::Return { value } => Self::render_expr(&value),
+            Statement::Call { ident, args } => format!(
+                "{ident}({});",
+                args.iter()
+                    .map(|Arg { ident, .. }| Self::render_expr(&ident))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
         }
     }
 }
