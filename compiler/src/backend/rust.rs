@@ -38,14 +38,36 @@ impl RustBackend {
             Expr::ArrayDim { ident, dim } => format!("{ident}.shape[{dim}]"),
             Expr::Str(s) | Expr::Ident(s) => s.to_string(),
             Expr::Int(x) => format!("{x}"),
-            Expr::Op { op, inputs } => format!(
-                "({})",
-                inputs
+            Expr::Op { op, inputs } => {
+                let prec = |c: char| match c {
+                    '*' | '/' => 2,
+                    '+' | '-' => 1,
+                    _ => 0,
+                };
+                let mp = prec(*op);
+                let parts: Vec<String> = inputs
                     .iter()
-                    .map(|input| Self::render_expr(&input))
-                    .collect::<Vec<_>>()
-                    .join(&format!(" {op} ")),
-            ),
+                    .map(|child| {
+                        let s = Self::render_expr(child);
+                        match child {
+                            Expr::Op { op: cop, .. } => {
+                                let cp = prec(*cop);
+                                if cp < mp || cp == 0 {
+                                    format!("({s})")
+                                } else {
+                                    s
+                                }
+                            }
+                            _ => s,
+                        }
+                    })
+                    .collect();
+                if mp == 0 {
+                    format!("({})", parts.join(&format!(" {} ", op)))
+                } else {
+                    parts.join(&format!(" {} ", op))
+                }
+            }
             Expr::Indexed { ident, index } => format!("{ident}[{}]", Self::render_expr(&index),),
         }
     }
