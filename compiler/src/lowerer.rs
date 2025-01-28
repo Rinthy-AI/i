@@ -85,30 +85,13 @@ impl Lowerer {
         });
 
         // push dim args
-        let dim_args = (0..char_indices.len()).map(|ind| Arg {
+        let dim_args = char_indices.iter().map(|c| Arg {
             type_: Type::Int(false),
-            ident: format!("{}_{ind}", arg_ident.clone()),
+            ident: loop_idents[c].0.clone(),
         });
         self.input_args.extend(dim_args.clone());
 
-        let bound_ident_declaration_statements: Vec<Statement> = char_indices
-            .iter()
-            .zip(dim_args)
-            .map(|(c, arg)| Statement::Declaration {
-                ident: loop_idents[&c].0.clone(), // bound ident
-                value: Expr::Ident(arg.ident),
-                type_: arg.type_,
-            })
-            .collect();
-
-        // TODO drop the block from here
-        (
-            Block {
-                statements: bound_ident_declaration_statements,
-            },
-            loop_idents,
-            arg_ident,
-        )
+        (Block::EMPTY, loop_idents, arg_ident)
     }
 
     fn lower_interior_node(
