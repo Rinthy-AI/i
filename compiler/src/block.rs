@@ -73,3 +73,7 @@ pub enum Statement {
 pub struct Block {
     pub statements: Vec<Statement>,
 }
+
+impl Block {
+    pub const EMPTY: Self = Block { statements: vec![] };
+}
