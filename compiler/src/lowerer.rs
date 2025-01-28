@@ -534,29 +534,4 @@ impl Lowerer {
         }
         sum_expr.unwrap_or(Expr::Int(0)) // Return 0 if no indices are provided
     }
-
-    fn create_args_and_ident_declarations(
-        &mut self,
-        store_ident: Option<&String>,
-        bound_idents: Vec<String>,
-        mutable: bool,
-    ) -> (Vec<Arg>, Vec<Statement>) {
-        let mut args = Vec::new();
-        let mut statements = vec![];
-
-        let ident = if store_ident.is_some() {
-            format!("in{}", self.input_array_counter)
-        } else {
-            "out".to_string()
-        };
-        self.input_array_counter += 1;
-
-        // push array arg
-        args.push(Arg {
-            type_: Type::ArrayRef(if mutable { true } else { false }),
-            ident: ident.clone(),
-        });
-
-        (args, statements)
-    }
 }
