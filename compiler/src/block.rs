@@ -27,7 +27,7 @@ pub enum Expr {
 #[derive(Clone, Debug)]
 pub struct Arg {
     pub type_: Type,
-    pub ident: String,
+    pub ident: Expr, // Should be Ident(_) or a Ref(_)
 }
 
 #[derive(Clone, Debug)]

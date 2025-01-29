@@ -81,13 +81,13 @@ impl Lowerer {
         // push array arg
         self.input_args.push(Arg {
             type_: Type::ArrayRef(false),
-            ident: arg_ident.clone(),
+            ident: Expr::Ident(arg_ident.clone()),
         });
 
         // push dim args
         let dim_args = char_indices.iter().map(|c| Arg {
             type_: Type::Int(false),
-            ident: loop_idents[c].0.clone(),
+            ident: Expr::Ident(loop_idents[c].0.clone()),
         });
         self.input_args.extend(dim_args.clone());
 
@@ -241,13 +241,13 @@ impl Lowerer {
             // push array arg
             self.input_args.push(Arg {
                 type_: Type::ArrayRef(true),
-                ident: store_ident.clone(),
+                ident: Expr::Ident(store_ident.clone()),
             });
 
             // push dim args
             let dim_args = (0..Self::get_char_indices(&index).len()).map(|ind| Arg {
                 type_: Type::Int(false),
-                ident: format!("{}_{ind}", store_ident.clone()),
+                ident: Expr::Ident(format!("{}_{ind}", store_ident.clone())),
             });
             self.input_args.extend(dim_args.clone());
         };

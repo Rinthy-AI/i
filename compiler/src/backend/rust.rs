@@ -111,8 +111,9 @@ impl RustBackend {
                         let (Type::Int(mutable) | Type::Array(mutable) | Type::ArrayRef(mutable)) =
                             type_;
                         format!(
-                            "{}{ident}: {}",
+                            "{}{}: {}",
                             if *mutable { "mut " } else { "" },
+                            Self::render_expr(ident),
                             Self::render_type(type_),
                         )
                     })
