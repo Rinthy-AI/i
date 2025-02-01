@@ -8,6 +8,7 @@ mod parser;
 mod render;
 mod tokenizer;
 
+use crate::backend::block::BlockBackend;
 use crate::backend::rust::RustBackend;
 use crate::lowerer::Lowerer;
 use crate::parser::Parser;
@@ -49,7 +50,7 @@ fn main() -> Result<(), String> {
     }
 
     // Validate the target platform
-    if target != "rust" {
+    if !(target == "rust" || target == "ir") {
         return Err(format!("Error: Unsupported target '{}'", target));
     }
 
@@ -79,18 +80,12 @@ fn main() -> Result<(), String> {
 
     // lower
     let block = Lowerer::new().lower(&graph);
-    println!("{:#?}", block);
 
-    let code = RustBackend::render(&block);
-    let formatted_code = format_rust_code(format!("fn main() {{ {code};}}"));
-    //let formatted_code = code;
-
-    //let formatted_code = format!("{:#?}", block);
-
-    //let backend = RustBackend {};
-    //let renderer: renderer::Renderer<RustBackend> = Renderer::new(backend, ast, expr_bank);
-    //let code = format!("fn main() {{ let f = {};}}", renderer.render().unwrap());
-    //let formatted_code = format_rust_code(code);
+    let formatted_code = match target {
+        "rust" => format_rust_code(format!("fn main() {{ {};}}", RustBackend::render(&block))),
+        "ir" => BlockBackend::render(&block),
+        &_ => unreachable!(),
+    };
 
     // Write output
     if let Some(path) = output_path {
