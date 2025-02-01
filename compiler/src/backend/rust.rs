@@ -104,7 +104,7 @@ impl RustBackend {
             }
 
             Statement::Function { ident, args, body } => format!(
-                "fn {ident}({}) {{{}}}",
+                "fn {ident}({}) {{{}{}}}",
                 //"|{}| {{{}}}",
                 args.iter()
                     .map(|Arg { type_, ident }| {
@@ -119,6 +119,7 @@ impl RustBackend {
                     })
                     .collect::<Vec<_>>()
                     .join(", "),
+                Self::get_copies(&args),
                 Self::render(&body),
             ),
             Statement::Return { value } => Self::render_expr(&value),
@@ -130,5 +131,63 @@ impl RustBackend {
                     .join(", "),
             ),
         }
+    }
+
+    fn get_copies(args: &Vec<Arg>) -> String {
+        struct ArgGroup {
+            array_ident: String,
+            dim_idents: Vec<String>,
+        }
+
+        let mut args = args.iter().peekable();
+        let mut arg_groups: Vec<ArgGroup> = vec![];
+
+        while let Some(Arg {
+            type_: Type::ArrayRef(_),
+            ident: Expr::Ident(ident),
+        }) = args.peek()
+        {
+            let mut arg_group = ArgGroup {
+                array_ident: ident.clone(),
+                dim_idents: vec![],
+            };
+            args.next();
+            while let Some(Arg {
+                type_: Type::Int(_),
+                ident: Expr::Ident(ident),
+            }) = args.peek()
+            {
+                arg_group.dim_idents.push(ident.clone());
+                args.next();
+            }
+            arg_groups.push(arg_group);
+        }
+
+        arg_groups
+            .iter()
+            .map(
+                |ArgGroup {
+                     array_ident,
+                     dim_idents,
+                 }| {
+                    let size = std::iter::once("4".to_string())
+                        .chain(dim_idents.iter().map(|s| s.clone()))
+                        .collect::<Vec<_>>()
+                        .join(" * ");
+
+                    format!(
+                        r#"
+                    /*
+                    float *h_{array_ident} = {array_ident};
+                    size_t size = {size} * sizeof(float);
+                    cudaMalloc(&{array_ident}, {size});
+                    cudaMemcpy({array_ident}, h_{array_ident}, {size}, cudaMemcpyHostToDevice);
+                    */
+                "#
+                    )
+                },
+            )
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
