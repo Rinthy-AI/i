@@ -1,5 +1,3 @@
-use std::ops::{Index, IndexMut};
-
 use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::render::Render;
 

@@ -1,7 +1,5 @@
 pub mod parser;
 
-use std::collections::{HashMap, HashSet};
-
 #[derive(Clone, Debug)]
 pub enum Expr {
     Alloc {

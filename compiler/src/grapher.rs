@@ -42,7 +42,7 @@ fn node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {
         },
         Expr::Combinator(combinator) => match combinator {
             Combinator::Chain(left_ref, right_ref) => {
-                let mut left = node(left_ref, expr_bank);
+                let left = node(left_ref, expr_bank);
                 let mut right = node(right_ref, expr_bank);
                 if let Node::Interior { .. } = right {
                     if let Some(first) = right.get_leaves_mut().first_mut() {

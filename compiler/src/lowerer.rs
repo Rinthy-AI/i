@@ -30,7 +30,7 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let (def_block, exec_block, bound_and_iterator_idents, store_ident) =
+        let (def_block, exec_block, _loop_idents, _store_ident) =
             self.lower_node(&graph.root, true);
         Block {
             statements: [
@@ -117,7 +117,7 @@ impl Lowerer {
         ) = children.iter().fold(
             (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
             |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents), child| {
-                let (child_def_block, child_exec_block, mut child_loop_idents, child_store_ident) =
+                let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
                     self.lower_node(&child, false);
                 let child_loop_idents: HashMap<_, _> = child_loop_idents
                     .into_iter()
@@ -239,7 +239,7 @@ impl Lowerer {
         let loop_stack: Statement =
             loop_statements
                 .into_iter()
-                .fold(op_statement, |mut loop_stack, mut loop_| {
+                .fold(op_statement, |loop_stack, mut loop_| {
                     if let Statement::Loop { ref mut body, .. } = loop_ {
                         body.statements.push(loop_stack);
                     }
@@ -403,8 +403,8 @@ impl Lowerer {
         let mut needs_index_reconstruction: HashSet<char> = schedule
             .splits
             .iter()
-            .filter(|(char_index, splits_factors)| splits_factors.len() > 0)
-            .map(|(char_index, splits_factors)| *char_index)
+            .filter(|(_c, splits_factors)| splits_factors.len() > 0)
+            .map(|(c, _splits_factors)| *c)
             .collect();
 
         let output_char_indices: HashSet<char> = index.chars().collect();
@@ -423,11 +423,11 @@ impl Lowerer {
 
             let bound = match (splits, rank) {
                 (None, _) => Expr::Ident(bound_idents[&char_index].clone()),
-                (Some(splits), 0) => Self::create_split_bound_expr(
+                (Some(_splits), 0) => Self::create_split_bound_expr(
                     &bound_idents[&char_index],
                     &split_factor_idents[&char_index],
                 ),
-                (Some(splits), rank) => {
+                (Some(_splits), rank) => {
                     Expr::Ident(split_factor_idents[&char_index][*rank - 1].clone())
                 }
             };
@@ -492,7 +492,7 @@ impl Lowerer {
         split_factors_idents: &Vec<String>,
         rank: usize,
     ) -> Vec<Statement> {
-        let mut factor_loop_widths: Vec<Expr> = split_factors_idents
+        let factor_loop_widths: Vec<Expr> = split_factors_idents
             .iter()
             .map(|ident| Expr::Ident(ident.clone()))
             .collect();
@@ -506,10 +506,8 @@ impl Lowerer {
         let mut widths = factor_loop_widths;
         widths.insert(0, base_loop_tile_width);
 
-        let mut factor_loop_iterator: Vec<Expr> = split_factors_idents
-            .iter()
-            .enumerate()
-            .map(|(ind, ident)| Expr::Ident(format!("{}_{ind}", base_iterator_ident.clone())))
+        let factor_loop_iterator: Vec<Expr> = (0..split_factors_idents.len())
+            .map(|ind| Expr::Ident(format!("{}_{ind}", base_iterator_ident.clone())))
             .collect();
 
         let mut iterators = factor_loop_iterator;

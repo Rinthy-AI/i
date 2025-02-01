@@ -81,11 +81,11 @@ fn main() -> Result<(), String> {
     // Process the input
     let block = match source {
         "i" => {
-            let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
+            let (_ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
             let graph = grapher::graph(&expr_bank);
 
             // get IndexExpr
-            let crate::ast::Expr::Index(ref expr) = expr_bank.0[0] else {
+            let crate::ast::Expr::Index(_) = expr_bank.0[0] else {
                 panic!("expression is not of variant Index")
             };
 
