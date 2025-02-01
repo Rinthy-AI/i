@@ -348,7 +348,7 @@ impl Lowerer {
         let op_char = match op {
             ScalarOp::UnaryOp(UnaryOp::Accum(_)) | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => '+',
             ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
-            ScalarOp::NoOp(_) => ' ', // never used
+            ScalarOp::NoOp(_) => unreachable!(),
         };
 
         let out_expr = Expr::Indexed {
