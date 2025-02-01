@@ -6,11 +6,6 @@ pub enum Expr {
         initial_value: f32,
         shape: Vec<String>,
     },
-    ArrayDim {
-        ident: String, // TODO: Should be Expr (Ident)
-        dim: usize,
-    },
-    Str(String),
     Int(usize),
     Ident(String),
     Ref(String, bool), // like Ident(_), but a ref (and tracks mutability)

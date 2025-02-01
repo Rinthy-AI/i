@@ -35,8 +35,7 @@ impl RustBackend {
                     format!("{}", shape.join(" * ")),
                 )
             }
-            Expr::ArrayDim { ident, dim } => format!("{ident}.shape[{dim}]"),
-            Expr::Str(s) | Expr::Ident(s) => s.to_string(),
+            Expr::Ident(s) => s.to_string(),
             Expr::Ref(s, mutable) => format!("&{}{s}", if *mutable { "mut " } else { "" }),
             Expr::Int(x) => format!("{x}"),
             Expr::Op { op, inputs } => {
