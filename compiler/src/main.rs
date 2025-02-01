@@ -31,11 +31,15 @@ fn main() -> Result<(), String> {
     // Parse command-line arguments
     let mut input_path: Option<String> = None;
     let mut output_path: Option<String> = None;
+    let mut source = "i";
     let mut target = "rust";
 
     let mut iter = args.iter().skip(1); // Skip the program name
     while let Some(arg) = iter.next() {
         match arg.as_str() {
+            "-s" | "--source" => {
+                source = iter.next().ok_or("Error: Missing value for --source")?;
+            }
             "-t" | "--target" => {
                 target = iter.next().ok_or("Error: Missing value for --target")?;
             }
@@ -47,6 +51,11 @@ fn main() -> Result<(), String> {
             other if output_path.is_none() => output_path = Some(other.to_string()),
             _ => return Err("Error: Too many arguments".to_string()),
         }
+    }
+
+    // Validate the source type
+    if !(source == "i" || source == "ir") {
+        return Err(format!("Error: Unsupported source '{}'", source));
     }
 
     // Validate the target platform
@@ -70,16 +79,22 @@ fn main() -> Result<(), String> {
     };
 
     // Process the input
-    let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
-    let graph = grapher::graph(&expr_bank);
+    let block = match source {
+        "i" => {
+            let (ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
+            let graph = grapher::graph(&expr_bank);
 
-    // get IndexExpr
-    let crate::ast::Expr::Index(ref expr) = expr_bank.0[0] else {
-        panic!("expression is not of variant Index")
+            // get IndexExpr
+            let crate::ast::Expr::Index(ref expr) = expr_bank.0[0] else {
+                panic!("expression is not of variant Index")
+            };
+
+            // lower
+            Lowerer::new().lower(&graph)
+        }
+        "ir" => block::parser::parse(&input),
+        &_ => unreachable!(),
     };
-
-    // lower
-    let block = Lowerer::new().lower(&graph);
 
     let formatted_code = match target {
         "rust" => format_rust_code(format!("fn main() {{ {};}}", RustBackend::render(&block))),

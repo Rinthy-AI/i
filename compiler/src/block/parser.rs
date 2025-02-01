@@ -8,7 +8,7 @@ enum Sexp {
     List(Vec<Sexp>),
 }
 
-pub fn parse_block(input: &str) -> Block {
+pub fn parse(input: &str) -> Block {
     let tokens = tokenize(input).collect::<Vec<_>>();
     let mut iter = tokens.into_iter().peekable();
     let sexp = parse_sexp(&mut iter);
