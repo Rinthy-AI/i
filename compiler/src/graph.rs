@@ -7,7 +7,7 @@ pub enum Node {
     },
     Interior {
         index: String,
-        op: ScalarOp,
+        op: char,
         children: Vec<Node>,
         schedule: Schedule,
     },

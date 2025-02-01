@@ -10,7 +10,15 @@ fn node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {
     match expr {
         Expr::Index(IndexExpr { op, out, schedule }) => Node::Interior {
             index: out.0.clone(),
-            op: op.clone(),
+            op: match op {
+                ScalarOp::UnaryOp(UnaryOp::Accum(_)) | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => {
+                    '+'
+                }
+                ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => {
+                    '*'
+                }
+                ScalarOp::NoOp(_) => unreachable!(),
+            },
             children: match op {
                 ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
                 | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1)) => vec![

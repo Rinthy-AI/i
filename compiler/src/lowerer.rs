@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{BinaryOp, IndexExpr, NoOp, ScalarOp, Schedule, Symbol, UnaryOp};
+use crate::ast::Schedule;
 use crate::block::{Arg, Block, Expr, Statement, Type};
 use crate::graph::{Graph, Node};
 
@@ -104,7 +104,7 @@ impl Lowerer {
     fn lower_interior_node(
         &mut self,
         index: &String,
-        op: &ScalarOp,
+        op: &char,
         children: &Vec<Node>,
         schedule: &Schedule,
         root: bool,
@@ -335,7 +335,7 @@ impl Lowerer {
     }
 
     fn create_op_statement(
-        op: &ScalarOp,
+        op: &char,
         bound_idents: &HashMap<char, String>,
         base_iterator_idents: &HashMap<char, String>,
         child_store_idents: &Vec<String>,
@@ -344,12 +344,6 @@ impl Lowerer {
         index: &String,
     ) -> Statement {
         assert_eq!(child_store_idents.len(), child_indices.len());
-
-        let op_char = match op {
-            ScalarOp::UnaryOp(UnaryOp::Accum(_)) | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => '+',
-            ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
-            ScalarOp::NoOp(_) => unreachable!(),
-        };
 
         let out_expr = Expr::Indexed {
             ident: store_ident.clone(),
@@ -385,13 +379,13 @@ impl Lowerer {
         assert_eq!(
             in_exprs.len(),
             2,
-            "Expected exactly two operands for op [{op_char}]."
+            "Expected exactly two operands for op [{op}]."
         );
 
         Statement::Assignment {
             left: out_expr,
             right: Expr::Op {
-                op: op_char,
+                op: *op,
                 inputs: in_exprs,
             },
         }
