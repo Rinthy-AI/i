@@ -129,15 +129,21 @@ impl Lowerer {
                 .map(|index| (index.clone(), 0))
                 .collect();
         }
+        schedule.compute_levels.resize(children.len(), 0);
 
-        //let pruned_loops: HashSet<_> = [ ( 'i', 0,), ( 'j', 0,) ].into_iter().collect();
+        // ---
+        // todo: replace 0 with child index
+        //let pruned_loops: HashSet<_> = schedule.loop_order[..schedule.compute_levels[0]]
+        //    .into_iter()
+        //    .collect();
 
         //schedule.loop_order = schedule.loop_order
         //    .iter()
         //    .filter(|l| !pruned_loops.contains(l))
         //    .map(|l| *l)
         //    .collect();
-        println!("{:#?}", schedule.loop_order);
+        //println!("{:#?}", schedule.loop_order);
+        // ---
 
         // recursively lower children
         let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
@@ -145,10 +151,10 @@ impl Lowerer {
             Block,
             HashMap<char, (String, String)>,
             Vec<String>,
-        ) = children.iter().fold(
+        ) = children.iter().enumerate().fold(
             (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
             |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
-             (child, index)| {
+             (ind, (child, index))| {
                 let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
                     self.lower_node(&child, false);
 

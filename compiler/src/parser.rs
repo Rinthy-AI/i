@@ -88,9 +88,6 @@ impl<'a> Parser<'a> {
             Token::Bar => {
                 let splits = self.parse_splits()?;
                 let (loop_order, compute_levels) = self.parse_loop_order()?;
-                println!("");
-                println!("loop order: {:#?}", loop_order);
-                println!("compute levels: {:#?}", compute_levels);
                 Ok(IndexExpr {
                     op: index_expr.op,
                     out: index_expr.out,
@@ -199,81 +196,49 @@ impl<'a> Parser<'a> {
                 let mut loop_order = Vec::new();
                 let mut compute_levels = Vec::new();
                 let mut chars = s.chars().peekable();
-
+                let mut compute_level = 0;
                 while let Some(c) = chars.next() {
                     if c.is_alphabetic() {
                         let mut apostrophe_count = 0;
-                        let mut compute_indices = Vec::new();
 
                         while let Some(&next) = chars.peek() {
                             if next == '\'' {
                                 chars.next();
                                 apostrophe_count += 1;
-                            } else if next == '(' {
-                                chars.next();
-                                while let Some(inner) = chars.peek() {
-                                    if *inner == ')' {
-                                        chars.next();
-                                        break;
-                                    } else if inner.is_ascii_digit() {
-                                        let num: usize =
-                                            chars.next().unwrap().to_digit(10).unwrap() as usize;
-                                        compute_indices.push(num);
-                                    } else {
-                                        return Err(ParseError::InvalidToken {
-                                            expected: "Digit inside computation level parentheses"
-                                                .to_string(),
-                                        });
-                                    }
-                                }
                             } else {
                                 break;
                             }
                         }
 
-                        let loop_index = loop_order.len();
                         loop_order.push((c, apostrophe_count));
-
-                        for &comp in &compute_indices {
-                            while compute_levels.len() <= comp {
-                                compute_levels.push(loop_index);
-                            }
-                        }
                     }
-                }
 
-                Ok((loop_order, compute_levels))
-            }
-            _ => Err(ParseError::InvalidToken {
-                expected: "Symbol representing loop ordering".to_string(),
-            }),
-        }
-    }
-
-    fn _parse_loop_order(&mut self) -> Result<Vec<(char, usize)>, ParseError> {
-        // Skip the initial Bar token
-        self.tokenizer.next();
-        match self.tokenizer.next() {
-            Token::Symbol(s) => {
-                let mut result = Vec::new();
-                let mut chars = s.chars().peekable();
-                while let Some(c) = chars.next() {
-                    if c.is_alphabetic() {
-                        let mut apostrophe_count = 0;
-
-                        while let Some(&next) = chars.peek() {
-                            if next == '\'' {
-                                chars.next();
-                                apostrophe_count += 1;
-                            } else {
+                    if let Some(&'(') = chars.peek() {
+                        chars.next(); // Consume '('
+                        while let Some(inner) = chars.peek() {
+                            if *inner == ')' {
+                                chars.next(); // Consume ')'
                                 break;
+                            } else if *inner == ',' {
+                                chars.next(); // Consume ')'
+                            } else if inner.is_ascii_digit() {
+                                let ind: usize =
+                                    chars.next().unwrap().to_digit(10).unwrap() as usize;
+                                if compute_levels.len() <= ind {
+                                    compute_levels.resize(ind + 1, 0);
+                                }
+                                compute_levels[ind] = compute_level + 1;
+                            } else {
+                                return Err(ParseError::InvalidToken {
+                                    expected: "Digit inside computation level parentheses"
+                                        .to_string(),
+                                });
                             }
                         }
-
-                        result.push((c, apostrophe_count));
                     }
+                    compute_level += 1;
                 }
-                Ok(result)
+                Ok((loop_order, compute_levels))
             }
             _ => Err(ParseError::InvalidToken {
                 expected: "Comma or end of schedule".to_string(),
