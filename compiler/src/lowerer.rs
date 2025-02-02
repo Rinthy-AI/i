@@ -12,9 +12,12 @@ pub struct Lowerer {
     split_factor_count: usize,
 }
 
+#[derive(Debug)]
 struct Lowered {
     def_block: Block,
+    alloc_block: Block,
     exec_block: Block,
+    def_args: Vec<Arg>, // only populated for kernel fragemnts, empty for full kernels
     loop_idents: HashMap<char, (String, String)>,
     store_ident: String,
 }
@@ -36,7 +39,7 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let lowered = self.lower_node(&graph.root, true);
+        let lowered = self.lower_node(&graph.root, HashSet::new(), true);
         Block {
             statements: [
                 lowered.def_block.statements,
@@ -44,7 +47,11 @@ impl Lowerer {
                     ident: "f".to_string(),
                     args: self.input_args.clone(),
                     body: Block {
-                        statements: lowered.exec_block.statements,
+                        statements: [
+                            lowered.alloc_block.statements,
+                            lowered.exec_block.statements,
+                        ]
+                        .concat(),
                     },
                 }],
             ]
@@ -52,10 +59,11 @@ impl Lowerer {
         }
     }
 
-    /// Return function def block, exec block, (bound, iterator) ident map, store ident
+    /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_node(
         &mut self,
         node: &Node,
+        pruned_loops: HashSet<(char, usize)>,
         root: bool,
     ) -> Lowered {
         match node {
@@ -65,11 +73,11 @@ impl Lowerer {
                 op,
                 children,
                 schedule,
-            } => self.lower_interior_node(index, op, children, schedule, root),
+            } => self.lower_interior_node(index, op, children, schedule, pruned_loops, root),
         }
     }
 
-    /// Return function def block, exec block, (bound, iterator) ident map, store ident
+    /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_leaf_node(&mut self, index: &String) -> Lowered {
         let arg_ident = format!("in{}", self.input_array_counter);
         self.input_array_counter += 1;
@@ -101,52 +109,121 @@ impl Lowerer {
 
         Lowered {
             def_block: Block::default(),
+            alloc_block: Block::default(),
             exec_block: Block::default(),
+            def_args: Vec::new(),
             loop_idents: loop_idents,
             store_ident: arg_ident,
         }
     }
 
-    /// Return function definition block, exec block, (bound, iterator) ident map, and store ident
+    /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_interior_node(
         &mut self,
         index: &String,
         op: &char,
         children: &Vec<(Node, String)>,
         schedule: &Schedule,
+        pruned_loops: HashSet<(char, usize)>,
         root: bool,
     ) -> Lowered {
-        let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
-            Block,
-            Block,
+        let mut all_char_indices: Vec<char> = children
+            .iter()
+            .fold(HashSet::new(), |mut all_char_indices, (_child, index)| {
+                all_char_indices.extend(index.chars());
+                all_char_indices
+            })
+            .into_iter()
+            .collect();
+        all_char_indices.sort();
+
+        let mut schedule = schedule.clone(); // Can we avoid this?
+        if schedule.loop_order.is_empty() {
+            schedule.loop_order = all_char_indices
+                .iter()
+                .map(|index| (index.clone(), 0))
+                .collect();
+        }
+        schedule.compute_levels.resize(children.len(), 0);
+
+        schedule.loop_order = schedule
+            .loop_order
+            .iter()
+            .filter(|l| !pruned_loops.contains(l))
+            .map(|l| *l)
+            .collect();
+
+        // recursively lower children
+        // note: the reason this is a fold instead of a map is because the loop_idents are
+        //       determined jointly with all siblings. those idents determined by the first child
+        //       are past to the lower call of the subsequent siblings.
+        let (
+            child_def_blocks,
+            child_alloc_blocks,
+            mut child_exec_blocks, // mut so fragments can be pulled out for fusion
+            mut child_def_args,
+            loop_idents,
+            child_store_idents,
+        ): (
+            Vec<Block>,
+            Vec<Block>,
+            Vec<Block>,
+            Vec<Arg>,
             HashMap<char, (String, String)>,
             Vec<String>,
-        ) = children.iter().fold(
-            (Block::default(), Block::default(), HashMap::new(), vec![]),
-            |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
-             (child, index)| {
+        ) = children.iter().enumerate().fold(
+            (vec![], vec![], vec![], vec![], HashMap::new(), vec![]),
+            |(
+                mut def_blocks,
+                mut alloc_blocks,
+                mut exec_blocks,
+                mut def_args,
+                mut loop_idents,
+                mut child_store_idents,
+            ),
+             (ind, (child, index))| {
+                // for mapping between child indexing and current node indexing
+                let child_to_current_index: HashMap<char, char> =
+                    child.index().chars().zip(index.chars()).collect();
+                let current_to_child_index: HashMap<char, char> =
+                    index.chars().zip(child.index().chars()).collect();
+
+                let pruned_loops: HashSet<(char, usize)> = schedule.loop_order
+                    [..schedule.compute_levels[ind]]
+                    .iter()
+                    .map(|(c, rank)| (*current_to_child_index.get(&c).unwrap_or(&c), *rank))
+                    .collect();
+
                 let Lowered {
                     def_block: child_def_block,
+                    alloc_block: child_alloc_block,
                     exec_block: child_exec_block,
+                    def_args: child_def_args,
                     loop_idents: child_loop_idents,
                     store_ident: child_store_ident,
-                } = self.lower_node(&child, false);
-
-                // for mapping between child indexing and current node indexing
-                let index_map: HashMap<char, char> =
-                    child.index().chars().zip(index.chars()).collect();
+                } = self.lower_node(&child, pruned_loops, false);
 
                 let child_loop_idents: HashMap<char, (String, String)> = child_loop_idents
                     .into_iter()
-                    .map(|(c, x)| (*index_map.get(&c).unwrap_or(&c), x))
+                    .map(|(c, x)| (*child_to_current_index.get(&c).unwrap_or(&c), x))
                     .filter(|(c, _)| !loop_idents.contains_key(c))
                     .collect();
 
-                def_block.statements.extend(child_def_block.statements);
-                exec_block.statements.extend(child_exec_block.statements);
+                def_blocks.push(child_def_block);
+                alloc_blocks.push(child_alloc_block);
+                exec_blocks.push(child_exec_block);
+                Self::merge_args(&mut def_args, child_def_args);
                 loop_idents.extend(child_loop_idents);
                 child_store_idents.push(child_store_ident);
-                (def_block, exec_block, loop_idents, child_store_idents)
+
+                (
+                    def_blocks,
+                    alloc_blocks,
+                    exec_blocks,
+                    def_args,
+                    loop_idents,
+                    child_store_idents,
+                )
             },
         );
 
@@ -158,17 +235,6 @@ impl Lowerer {
                 ident
             }
         };
-
-        let mut all_char_indices: Vec<char> = loop_idents.keys().map(|c| *c).collect();
-        all_char_indices.sort();
-
-        let mut schedule = schedule.clone(); // Can we avoid this?
-        if schedule.loop_order.is_empty() {
-            schedule.loop_order = all_char_indices
-                .iter()
-                .map(|index| (index.clone(), 0))
-                .collect();
-        }
 
         // create split factor idents
         let split_factor_idents: HashMap<char, Vec<String>> = schedule
@@ -243,7 +309,7 @@ impl Lowerer {
         );
 
         // TODO: stop splitting ident map
-        let loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
+        let mut loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
             &schedule,
             &loop_idents
                 .iter()
@@ -256,6 +322,25 @@ impl Lowerer {
             &split_factor_idents,
             &index,
         );
+
+        // paired with loop indices
+        let child_exec_fragments: Vec<(usize, Block)> = schedule
+            .compute_levels
+            .iter()
+            .zip(child_exec_blocks.drain(..))
+            .filter(|(&ind, _)| ind > 0)
+            .map(|(ind, block)| (*ind, block))
+            .collect();
+
+        // fuse any child kernel fragments into the appropriate loop bodies
+        let n_loop_statements = loop_statements.len();
+        for (ind, child_exec_fragment) in child_exec_fragments {
+            let Statement::Loop { body, .. } = &mut loop_statements[n_loop_statements - ind] else {
+                panic!("Expected `Statement` to be of `Loop` variant")
+            };
+            body.statements
+                .extend(child_exec_fragment.statements.clone());
+        }
 
         let loop_stack: Statement =
             loop_statements
@@ -284,77 +369,114 @@ impl Lowerer {
 
         let function_ident = format!("_{}", store_ident.clone());
 
-        let def_block = Block {
-            statements: [
-                child_def_block.statements,
-                vec![Statement::Function {
-                    ident: function_ident.clone(),
-                    args: [
-                        child_store_idents
-                            .iter()
-                            .map(|ident| Arg {
-                                type_: Type::ArrayRef(false),
-                                ident: Expr::Ident(ident.clone()),
-                            })
-                            .collect::<Vec<_>>(),
-                        vec![Arg {
-                            type_: Type::ArrayRef(true),
-                            ident: Expr::Ident(store_ident.clone()),
-                        }],
-                        all_char_indices
-                            .iter()
-                            .map(|c| Arg {
-                                type_: Type::Int(false),
-                                ident: Expr::Ident(loop_idents[c].0.clone()),
-                            })
-                            .collect::<Vec<_>>(),
-                    ]
-                    .concat(),
-                    body: Block {
-                        statements: [split_factor_assignment_statements, vec![loop_stack]].concat(),
-                    },
-                }],
-            ]
-            .concat(),
-        };
+        let exec_statements = [split_factor_assignment_statements, vec![loop_stack]].concat();
 
-        let call = Statement::Call {
-            ident: function_ident.clone(),
-            args: [
-                child_store_idents
-                    .iter()
-                    .map(|ident| Arg {
-                        type_: Type::ArrayRef(false),
-                        ident: Expr::Ref(ident.clone(), false),
-                    })
-                    .collect::<Vec<_>>(),
-                vec![Arg {
-                    type_: Type::ArrayRef(true),
-                    ident: Expr::Ref(store_ident.clone(), true),
-                }],
-                all_char_indices
-                    .iter()
-                    .map(|c| Arg {
-                        type_: Type::Int(false),
-                        ident: Expr::Ident(loop_idents[c].0.clone()),
-                    })
-                    .collect::<Vec<_>>(),
-            ]
-            .concat(),
-        };
-
-        let exec_block = Block {
+        let alloc_block = Block {
             statements: [
-                child_exec_block.statements,
+                child_alloc_blocks
+                    .into_iter()
+                    .flat_map(|block| block.statements)
+                    .collect(),
                 if root { vec![] } else { vec![alloc_statement] }, // TODO: Make not hacky.
-                vec![call],
             ]
             .concat(),
+        };
+
+        // this will get drained for full kernels and returned populated for fragments
+        let mut def_args: Vec<Arg> = [
+            child_store_idents
+                .iter()
+                .map(|ident| Arg {
+                    type_: Type::ArrayRef(false),
+                    ident: Expr::Ident(ident.clone()),
+                })
+                .collect::<Vec<_>>(),
+            vec![Arg {
+                type_: Type::ArrayRef(true),
+                ident: Expr::Ident(store_ident.clone()),
+            }],
+            all_char_indices
+                .iter()
+                .map(|c| Arg {
+                    type_: Type::Int(false),
+                    ident: Expr::Ident(loop_idents[c].0.clone()),
+                })
+                .collect::<Vec<_>>(),
+        ]
+        .concat();
+
+        Self::merge_args(&mut def_args, child_def_args);
+
+        // this will get drained for full kernels and returned populated for fragments
+        let call_args: Vec<Arg> = def_args
+            .iter()
+            .map(|arg| match (arg.type_.clone(), arg.ident.clone()) {
+                (Type::ArrayRef(mutable), Expr::Ident(s)) => Arg {
+                    type_: Type::ArrayRef(mutable),
+                    ident: Expr::Ref(s, mutable),
+                },
+                (Type::Int(mutable), Expr::Ident(s)) => Arg {
+                    type_: Type::ArrayRef(mutable),
+                    ident: Expr::Ident(s),
+                },
+                _ => panic!("Invalid argument."),
+            })
+            .collect();
+
+        let (def_block, exec_block) = if pruned_loops.is_empty() {
+            let def_block = Block {
+                statements: [
+                    child_def_blocks
+                        .into_iter()
+                        .flat_map(|block| block.statements)
+                        .collect(),
+                    vec![Statement::Function {
+                        ident: function_ident.clone(),
+                        args: def_args.drain(..).collect(),
+                        body: Block {
+                            statements: exec_statements,
+                        },
+                    }],
+                ]
+                .concat(),
+            };
+
+            let call = Statement::Call {
+                ident: function_ident.clone(),
+                args: call_args,
+            };
+
+            let exec_block = Block {
+                statements: [
+                    child_exec_blocks
+                        .into_iter()
+                        .flat_map(|block| block.statements)
+                        .collect(),
+                    vec![call],
+                ]
+                .concat(),
+            };
+
+            (def_block, exec_block)
+        } else {
+            let exec_block = Block {
+                statements: [
+                    child_exec_blocks
+                        .into_iter()
+                        .flat_map(|block| block.statements)
+                        .collect(),
+                    exec_statements,
+                ]
+                .concat(),
+            };
+            (Block::default(), exec_block)
         };
 
         Lowered {
             def_block,
+            alloc_block,
             exec_block,
+            def_args,
             loop_idents,
             store_ident,
         }
@@ -604,5 +726,31 @@ impl Lowerer {
             });
         }
         sum_expr.unwrap_or(Expr::Int(0)) // Return 0 if no indices are provided
+    }
+
+    /// Merge two arg lists without duplication, and preferring mutability
+    /// Mostly written by ChatGPT o1
+    fn merge_args(def_args: &mut Vec<Arg>, child_def_args: Vec<Arg>) {
+        for arg in child_def_args {
+            let ident = match &arg.ident {
+                Expr::Ident(s) => s,
+                _ => panic!("Invalid Arg.ident type."),
+            };
+            if let Some(existing) = def_args.iter_mut().find(|e| match &e.ident {
+                Expr::Ident(ei) => ei == ident,
+                _ => false,
+            }) {
+                let incoming_mutable = match &arg.type_ {
+                    Type::Int(m) | Type::Array(m) | Type::ArrayRef(m) => *m,
+                };
+                if incoming_mutable {
+                    match &mut existing.type_ {
+                        Type::Int(em) | Type::Array(em) | Type::ArrayRef(em) => *em = true,
+                    }
+                }
+            } else {
+                def_args.push(arg);
+            }
+        }
     }
 }
