@@ -74,7 +74,7 @@ impl Lowerer {
 
         let char_indices = Self::get_char_indices(index);
 
-        let loop_idents: HashMap<_, _> = char_indices
+        let loop_idents: HashMap<char, (String, String)> = char_indices
             .iter()
             .map(|char_index| {
                 let bound_ident = format!("b{}", self.base_loop_counter);
@@ -105,7 +105,7 @@ impl Lowerer {
         &mut self,
         index: &String,
         op: &char,
-        children: &Vec<Node>,
+        children: &Vec<(Node, String)>,
         schedule: &Schedule,
         root: bool,
     ) -> (Block, Block, HashMap<char, (String, String)>, String) {
@@ -116,13 +116,23 @@ impl Lowerer {
             Vec<String>,
         ) = children.iter().fold(
             (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
-            |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents), child| {
+            |(mut def_block, mut exec_block, loop_idents, mut child_store_idents),
+             (child, index)| {
                 let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
                     self.lower_node(&child, false);
-                let child_loop_idents: HashMap<_, _> = child_loop_idents
+
+                // for mapping between child indexing and current node indexing
+                let index_map: HashMap<char, char> =
+                    child.index().chars().zip(index.chars()).collect();
+
+                let child_loop_idents: HashMap<char, (String, String)> = child_loop_idents
                     .into_iter()
+                    .map(|(c, x)| (index_map[&c], x))
                     .filter(|(c, _)| !loop_idents.contains_key(c))
                     .collect();
+
+                let mut loop_idents: HashMap<char, (String, String)> =
+                    loop_idents.into_iter().map(|(c, x)| (c, x)).collect();
 
                 def_block.statements.extend(child_def_block.statements);
                 exec_block.statements.extend(child_exec_block.statements);
@@ -216,7 +226,10 @@ impl Lowerer {
                 .map(|(c, (_, ident))| (*c, ident.clone()))
                 .collect(),
             &child_store_idents,
-            &children.iter().map(|child| child.index()).collect(),
+            &children
+                .iter()
+                .map(|(child, index)| index.clone())
+                .collect(),
             &store_ident,
             &index,
         );

@@ -8,7 +8,7 @@ pub enum Node {
     Interior {
         index: String,
         op: char,
-        children: Vec<Node>,
+        children: Vec<(Node, String)>, // the child node and the index according to current `Node`
         schedule: Schedule,
     },
 }
@@ -19,7 +19,7 @@ impl Node {
             Node::Leaf { .. } => vec![self],
             Node::Interior { children, .. } => children
                 .iter_mut()
-                .flat_map(|child| child.get_leaves_mut())
+                .flat_map(|(child, _index)| child.get_leaves_mut())
                 .collect(),
         }
     }

@@ -22,21 +22,33 @@ fn node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {
             children: match op {
                 ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
                 | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1)) => vec![
-                    Node::Leaf {
-                        index: in0.0.clone(),
-                    },
-                    Node::Leaf {
-                        index: in1.0.clone(),
-                    },
+                    (
+                        Node::Leaf {
+                            index: in0.0.clone(),
+                        },
+                        in0.0.clone(),
+                    ),
+                    (
+                        Node::Leaf {
+                            index: in1.0.clone(),
+                        },
+                        in1.0.clone(),
+                    ),
                 ],
                 ScalarOp::UnaryOp(UnaryOp::Accum(in0)) | ScalarOp::UnaryOp(UnaryOp::Prod(in0)) => {
-                    vec![Node::Leaf {
-                        index: in0.0.clone(),
-                    }]
+                    vec![(
+                        Node::Leaf {
+                            index: in0.0.clone(),
+                        },
+                        in0.0.clone(),
+                    )]
                 }
-                ScalarOp::NoOp(NoOp(in0)) => vec![Node::Leaf {
-                    index: in0.0.clone(),
-                }],
+                ScalarOp::NoOp(NoOp(in0)) => vec![(
+                    Node::Leaf {
+                        index: in0.0.clone(),
+                    },
+                    in0.0.clone(),
+                )],
             },
             schedule: schedule.clone(),
         },
