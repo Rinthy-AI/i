@@ -64,9 +64,11 @@ impl BlockBackend {
         match stmt {
             Statement::Assignment { left, right } => {
                 format!(
-                    "{}(assign {} {})",
+                    "{}(assign\n{}{}\n{}{})",
                     ind,
+                    Self::indent(level + 1),
                     Self::render_expr(left),
+                    Self::indent(level + 1),
                     Self::render_expr(right)
                 )
             }
@@ -106,13 +108,14 @@ impl BlockBackend {
                     .iter()
                     .map(|Arg { type_, ident }| {
                         format!(
-                            "(arg {} {})",
+                            "\n{}(arg {} {})",
+                            Self::indent(level + 1),
                             Self::render_type(type_),
                             Self::render_expr(ident)
                         )
                     })
                     .collect::<Vec<_>>()
-                    .join(" ");
+                    .join("");
                 format!(
                     "{}(func {} ({}) {})",
                     ind,
