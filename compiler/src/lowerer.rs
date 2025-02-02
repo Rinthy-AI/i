@@ -116,7 +116,7 @@ impl Lowerer {
             Vec<String>,
         ) = children.iter().fold(
             (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
-            |(mut def_block, mut exec_block, loop_idents, mut child_store_idents),
+            |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
              (child, index)| {
                 let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
                     self.lower_node(&child, false);
@@ -130,9 +130,6 @@ impl Lowerer {
                     .map(|(c, x)| (*index_map.get(&c).unwrap_or(&c), x))
                     .filter(|(c, _)| !loop_idents.contains_key(c))
                     .collect();
-
-                let mut loop_idents: HashMap<char, (String, String)> =
-                    loop_idents.into_iter().map(|(c, x)| (c, x)).collect();
 
                 def_block.statements.extend(child_def_block.statements);
                 exec_block.statements.extend(child_exec_block.statements);
