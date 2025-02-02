@@ -97,7 +97,7 @@ impl<'a> Tokenizer<'a> {
             return Ok(Token::Int(self.consume_int()));
         }
 
-        if c.is_alphabetic() || c == '_' {
+        if c.is_alphabetic() || c == '_' || c == '(' || c == ')' {
             return Ok(Token::Symbol(self.consume_str()));
         }
 

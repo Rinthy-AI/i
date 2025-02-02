@@ -108,6 +108,38 @@ impl Lowerer {
         schedule: &Schedule,
         root: bool,
     ) -> (Block, Block, HashMap<char, (String, String)>, String) {
+        // have to compute all_char_indices here
+        // have to prune schedule(s) for child(ren)
+        // must have a way to pass schedule-pruning information in recursive call
+
+        let mut all_char_indices: Vec<char> = children
+            .iter()
+            .fold(HashSet::new(), |mut all_char_indices, (_child, index)| {
+                all_char_indices.extend(index.chars());
+                all_char_indices
+            })
+            .into_iter()
+            .collect();
+        all_char_indices.sort();
+
+        let mut schedule = schedule.clone(); // Can we avoid this?
+        if schedule.loop_order.is_empty() {
+            schedule.loop_order = all_char_indices
+                .iter()
+                .map(|index| (index.clone(), 0))
+                .collect();
+        }
+
+        //let pruned_loops: HashSet<_> = [ ( 'i', 0,), ( 'j', 0,) ].into_iter().collect();
+
+        //schedule.loop_order = schedule.loop_order
+        //    .iter()
+        //    .filter(|l| !pruned_loops.contains(l))
+        //    .map(|l| *l)
+        //    .collect();
+        println!("{:#?}", schedule.loop_order);
+
+        // recursively lower children
         let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
             Block,
             Block,
@@ -146,17 +178,6 @@ impl Lowerer {
                 ident
             }
         };
-
-        let mut all_char_indices: Vec<char> = loop_idents.keys().map(|c| *c).collect();
-        all_char_indices.sort();
-
-        let mut schedule = schedule.clone(); // Can we avoid this?
-        if schedule.loop_order.is_empty() {
-            schedule.loop_order = all_char_indices
-                .iter()
-                .map(|index| (index.clone(), 0))
-                .collect();
-        }
 
         // create split factor idents
         let split_factor_idents: HashMap<char, Vec<String>> = schedule
