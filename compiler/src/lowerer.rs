@@ -30,7 +30,7 @@ impl Lowerer {
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
         let (def_block, exec_block, _loop_idents, _store_ident) =
-            self.lower_node(&graph.root, true);
+            self.lower_node(&graph.root, HashSet::new(), true);
         Block {
             statements: [
                 def_block.statements,
@@ -50,6 +50,7 @@ impl Lowerer {
     fn lower_node(
         &mut self,
         node: &Node,
+        pruned_loops: HashSet<(char, usize)>,
         root: bool,
     ) -> (Block, Block, HashMap<char, (String, String)>, String) {
         match node {
@@ -59,7 +60,7 @@ impl Lowerer {
                 op,
                 children,
                 schedule,
-            } => self.lower_interior_node(index, op, children, schedule, root),
+            } => self.lower_interior_node(index, op, children, schedule, pruned_loops, root),
         }
     }
 
@@ -106,12 +107,9 @@ impl Lowerer {
         op: &char,
         children: &Vec<(Node, String)>,
         schedule: &Schedule,
+        pruned_loops: HashSet<(char, usize)>,
         root: bool,
     ) -> (Block, Block, HashMap<char, (String, String)>, String) {
-        // have to compute all_char_indices here
-        // have to prune schedule(s) for child(ren)
-        // must have a way to pass schedule-pruning information in recursive call
-
         let mut all_char_indices: Vec<char> = children
             .iter()
             .fold(HashSet::new(), |mut all_char_indices, (_child, index)| {
@@ -131,19 +129,12 @@ impl Lowerer {
         }
         schedule.compute_levels.resize(children.len(), 0);
 
-        // ---
-        // todo: replace 0 with child index
-        //let pruned_loops: HashSet<_> = schedule.loop_order[..schedule.compute_levels[0]]
-        //    .into_iter()
-        //    .collect();
-
-        //schedule.loop_order = schedule.loop_order
-        //    .iter()
-        //    .filter(|l| !pruned_loops.contains(l))
-        //    .map(|l| *l)
-        //    .collect();
-        //println!("{:#?}", schedule.loop_order);
-        // ---
+        schedule.loop_order = schedule
+            .loop_order
+            .iter()
+            .filter(|l| !pruned_loops.contains(l))
+            .map(|l| *l)
+            .collect();
 
         // recursively lower children
         let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
@@ -155,16 +146,24 @@ impl Lowerer {
             (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
             |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
              (ind, (child, index))| {
-                let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
-                    self.lower_node(&child, false);
-
                 // for mapping between child indexing and current node indexing
-                let index_map: HashMap<char, char> =
+                let child_to_current_index: HashMap<char, char> =
                     child.index().chars().zip(index.chars()).collect();
+                let current_to_child_index: HashMap<char, char> =
+                    index.chars().zip(child.index().chars()).collect();
+
+                let pruned_loops: HashSet<(char, usize)> = schedule.loop_order
+                    [..schedule.compute_levels[ind]]
+                    .iter()
+                    .map(|(c, rank)| (*current_to_child_index.get(&c).unwrap_or(&c), *rank))
+                    .collect();
+
+                let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
+                    self.lower_node(&child, pruned_loops, false);
 
                 let child_loop_idents: HashMap<char, (String, String)> = child_loop_idents
                     .into_iter()
-                    .map(|(c, x)| (*index_map.get(&c).unwrap_or(&c), x))
+                    .map(|(c, x)| (*child_to_current_index.get(&c).unwrap_or(&c), x))
                     .filter(|(c, _)| !loop_idents.contains_key(c))
                     .collect();
 
@@ -366,6 +365,10 @@ impl Lowerer {
             ]
             .concat(),
         };
+
+        // TODO
+        // if loops have been pruned, do not use function definition+call pattern, just return exec
+        // if issued prunes for child, write child statements into appropriate loop body
 
         (def_block, exec_block, loop_idents, store_ident)
     }
