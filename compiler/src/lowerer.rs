@@ -12,6 +12,13 @@ pub struct Lowerer {
     split_factor_count: usize,
 }
 
+struct Lowered {
+    def_block: Block,
+    exec_block: Block,
+    loop_idents: HashMap<char, (String, String)>,
+    store_ident: String,
+}
+
 impl Lowerer {
     pub fn new() -> Self {
         Lowerer {
@@ -29,16 +36,15 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let (def_block, exec_block, _loop_idents, _store_ident) =
-            self.lower_node(&graph.root, true);
+        let lowered = self.lower_node(&graph.root, true);
         Block {
             statements: [
-                def_block.statements,
+                lowered.def_block.statements,
                 vec![Statement::Function {
                     ident: "f".to_string(),
                     args: self.input_args.clone(),
                     body: Block {
-                        statements: exec_block.statements,
+                        statements: lowered.exec_block.statements,
                     },
                 }],
             ]
@@ -51,7 +57,7 @@ impl Lowerer {
         &mut self,
         node: &Node,
         root: bool,
-    ) -> (Block, Block, HashMap<char, (String, String)>, String) {
+    ) -> Lowered {
         match node {
             Node::Leaf { index, .. } => self.lower_leaf_node(&index),
             Node::Interior {
@@ -64,10 +70,7 @@ impl Lowerer {
     }
 
     /// Return function def block, exec block, (bound, iterator) ident map, store ident
-    fn lower_leaf_node(
-        &mut self,
-        index: &String,
-    ) -> (Block, Block, HashMap<char, (String, String)>, String) {
+    fn lower_leaf_node(&mut self, index: &String) -> Lowered {
         let arg_ident = format!("in{}", self.input_array_counter);
         self.input_array_counter += 1;
 
@@ -96,7 +99,12 @@ impl Lowerer {
         });
         self.input_args.extend(dim_args.clone());
 
-        (Block::default(), Block::default(), loop_idents, arg_ident)
+        Lowered {
+            def_block: Block::default(),
+            exec_block: Block::default(),
+            loop_idents: loop_idents,
+            store_ident: arg_ident,
+        }
     }
 
     /// Return function definition block, exec block, (bound, iterator) ident map, and store ident
@@ -107,7 +115,7 @@ impl Lowerer {
         children: &Vec<(Node, String)>,
         schedule: &Schedule,
         root: bool,
-    ) -> (Block, Block, HashMap<char, (String, String)>, String) {
+    ) -> Lowered {
         let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
             Block,
             Block,
@@ -117,8 +125,12 @@ impl Lowerer {
             (Block::default(), Block::default(), HashMap::new(), vec![]),
             |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
              (child, index)| {
-                let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =
-                    self.lower_node(&child, false);
+                let Lowered {
+                    def_block: child_def_block,
+                    exec_block: child_exec_block,
+                    loop_idents: child_loop_idents,
+                    store_ident: child_store_ident,
+                } = self.lower_node(&child, false);
 
                 // for mapping between child indexing and current node indexing
                 let index_map: HashMap<char, char> =
@@ -340,7 +352,12 @@ impl Lowerer {
             .concat(),
         };
 
-        (def_block, exec_block, loop_idents, store_ident)
+        Lowered {
+            def_block,
+            exec_block,
+            loop_idents,
+            store_ident,
+        }
     }
 
     fn create_op_statement(
