@@ -193,6 +193,7 @@ impl Lowerer {
                 exec_block.statements.extend(child_exec_block.statements);
                 loop_idents.extend(child_loop_idents);
                 child_store_idents.push(child_store_ident);
+
                 (def_block, alloc_block, exec_block, loop_idents, child_store_idents)
             },
         );
@@ -320,64 +321,7 @@ impl Lowerer {
 
         let function_ident = format!("_{}", store_ident.clone());
 
-        let def_block = Block {
-            statements: [
-                child_def_block.statements,
-                vec![Statement::Function {
-                    ident: function_ident.clone(),
-                    args: [
-                        child_store_idents
-                            .iter()
-                            .map(|ident| Arg {
-                                type_: Type::ArrayRef(false),
-                                ident: Expr::Ident(ident.clone()),
-                            })
-                            .collect::<Vec<_>>(),
-                        vec![Arg {
-                            type_: Type::ArrayRef(true),
-                            ident: Expr::Ident(store_ident.clone()),
-                        }],
-                        all_char_indices
-                            .iter()
-                            .map(|c| Arg {
-                                type_: Type::Int(false),
-                                ident: Expr::Ident(loop_idents[c].0.clone()),
-                            })
-                            .collect::<Vec<_>>(),
-                    ]
-                    .concat(),
-                    body: Block {
-                        statements: [split_factor_assignment_statements, vec![loop_stack]].concat(),
-                    },
-                }],
-            ]
-            .concat(),
-        };
-
-        let call = Statement::Call {
-            ident: function_ident.clone(),
-            args: [
-                child_store_idents
-                    .iter()
-                    .map(|ident| Arg {
-                        type_: Type::ArrayRef(false),
-                        ident: Expr::Ref(ident.clone(), false),
-                    })
-                    .collect::<Vec<_>>(),
-                vec![Arg {
-                    type_: Type::ArrayRef(true),
-                    ident: Expr::Ref(store_ident.clone(), true),
-                }],
-                all_char_indices
-                    .iter()
-                    .map(|c| Arg {
-                        type_: Type::Int(false),
-                        ident: Expr::Ident(loop_idents[c].0.clone()),
-                    })
-                    .collect::<Vec<_>>(),
-            ]
-            .concat(),
-        };
+        let exec_statements = [split_factor_assignment_statements, vec![loop_stack]].concat();
 
         let alloc_block = Block {
             statements: [
@@ -387,13 +331,81 @@ impl Lowerer {
             .concat(),
         };
 
-        let exec_block = Block {
-            statements: [child_exec_block.statements, vec![call]].concat(),
+        let (def_block, exec_block) = if pruned_loops.is_empty() {
+            let def_block = Block {
+                statements: [
+                    child_def_block.statements,
+                    vec![Statement::Function {
+                        ident: function_ident.clone(),
+                        args: [
+                            child_store_idents
+                                .iter()
+                                .map(|ident| Arg {
+                                    type_: Type::ArrayRef(false),
+                                    ident: Expr::Ident(ident.clone()),
+                                })
+                                .collect::<Vec<_>>(),
+                            vec![Arg {
+                                type_: Type::ArrayRef(true),
+                                ident: Expr::Ident(store_ident.clone()),
+                            }],
+                            all_char_indices
+                                .iter()
+                                .map(|c| Arg {
+                                    type_: Type::Int(false),
+                                    ident: Expr::Ident(loop_idents[c].0.clone()),
+                                })
+                                .collect::<Vec<_>>(),
+                        ]
+                        .concat(),
+                        body: Block {
+                            statements: exec_statements,
+                        },
+                    }],
+                ]
+                .concat(),
+            };
+
+            let call = Statement::Call {
+                ident: function_ident.clone(),
+                args: [
+                    child_store_idents
+                        .iter()
+                        .map(|ident| Arg {
+                            type_: Type::ArrayRef(false),
+                            ident: Expr::Ref(ident.clone(), false),
+                        })
+                        .collect::<Vec<_>>(),
+                    vec![Arg {
+                        type_: Type::ArrayRef(true),
+                        ident: Expr::Ref(store_ident.clone(), true),
+                    }],
+                    all_char_indices
+                        .iter()
+                        .map(|c| Arg {
+                            type_: Type::Int(false),
+                            ident: Expr::Ident(loop_idents[c].0.clone()),
+                        })
+                        .collect::<Vec<_>>(),
+                ]
+                .concat(),
+            };
+
+            let exec_block = Block {
+                statements: [child_exec_block.statements, vec![call]].concat(),
+            };
+
+            (def_block, exec_block)
+        } else {
+            let exec_block = Block {
+                statements: [child_exec_block.statements, exec_statements].concat(),
+            };
+            (Block::default(), exec_block)
         };
 
         // TODO
-        // if loops have been pruned, do not use function definition+call pattern, just return exec
         // if issued prunes for child, write child statements into appropriate loop body
+        // if fusing a node, current function must pass child's inputs in place of the child store
 
         Lowered {
             def_block,
