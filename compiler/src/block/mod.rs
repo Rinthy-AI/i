@@ -69,11 +69,7 @@ pub enum Statement {
     }, // This is a Statement because it's only ever used as one
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Block {
     pub statements: Vec<Statement>,
-}
-
-impl Block {
-    pub const EMPTY: Self = Block { statements: vec![] };
 }

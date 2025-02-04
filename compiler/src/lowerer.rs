@@ -101,8 +101,8 @@ impl Lowerer {
         self.input_args.extend(dim_args.clone());
 
         Lowered {
-            def_block: Block::EMPTY,
-            exec_block: Block::EMPTY,
+            def_block: Block::default(),
+            exec_block: Block::default(),
             loop_idents: loop_idents,
             store_ident: arg_ident,
         }
@@ -151,7 +151,7 @@ impl Lowerer {
             HashMap<char, (String, String)>,
             Vec<String>,
         ) = children.iter().enumerate().fold(
-            (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
+            (Block::default(), Block::default(), HashMap::new(), vec![]),
             |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
              (ind, (child, index))| {
                 // for mapping between child indexing and current node indexing
