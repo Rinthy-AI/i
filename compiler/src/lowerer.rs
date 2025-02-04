@@ -12,8 +12,10 @@ pub struct Lowerer {
     split_factor_count: usize,
 }
 
+#[derive(Debug)]
 struct Lowered {
     def_block: Block,
+    alloc_block: Block,
     exec_block: Block,
     loop_idents: HashMap<char, (String, String)>,
     store_ident: String,
@@ -44,7 +46,11 @@ impl Lowerer {
                     ident: "f".to_string(),
                     args: self.input_args.clone(),
                     body: Block {
-                        statements: lowered.exec_block.statements,
+                        statements: [
+                            lowered.alloc_block.statements,
+                            lowered.exec_block.statements,
+                        ]
+                        .concat(),
                     },
                 }],
             ]
@@ -52,7 +58,7 @@ impl Lowerer {
         }
     }
 
-    /// Return function def block, exec block, (bound, iterator) ident map, store ident
+    /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_node(
         &mut self,
         node: &Node,
@@ -70,7 +76,7 @@ impl Lowerer {
         }
     }
 
-    /// Return function def block, exec block, (bound, iterator) ident map, store ident
+    /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_leaf_node(&mut self, index: &String) -> Lowered {
         let arg_ident = format!("in{}", self.input_array_counter);
         self.input_array_counter += 1;
@@ -102,13 +108,14 @@ impl Lowerer {
 
         Lowered {
             def_block: Block::default(),
+            alloc_block: Block::default(),
             exec_block: Block::default(),
             loop_idents: loop_idents,
             store_ident: arg_ident,
         }
     }
 
-    /// Return function definition block, exec block, (bound, iterator) ident map, and store ident
+    /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_interior_node(
         &mut self,
         index: &String,
@@ -145,14 +152,15 @@ impl Lowerer {
             .collect();
 
         // recursively lower children
-        let (child_def_block, child_exec_block, loop_idents, child_store_idents): (
+        let (child_def_block, child_alloc_block, child_exec_block, loop_idents, child_store_idents): (
+            Block,
             Block,
             Block,
             HashMap<char, (String, String)>,
             Vec<String>,
         ) = children.iter().enumerate().fold(
-            (Block::default(), Block::default(), HashMap::new(), vec![]),
-            |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
+            (Block::default(), Block::default(), Block::default(), HashMap::new(), vec![]),
+            |(mut def_block, mut alloc_block, mut exec_block, mut loop_idents, mut child_store_idents),
              (ind, (child, index))| {
                 // for mapping between child indexing and current node indexing
                 let child_to_current_index: HashMap<char, char> =
@@ -168,6 +176,7 @@ impl Lowerer {
 
                 let Lowered {
                     def_block: child_def_block,
+                    alloc_block: child_alloc_block,
                     exec_block: child_exec_block,
                     loop_idents: child_loop_idents,
                     store_ident: child_store_ident,
@@ -180,10 +189,11 @@ impl Lowerer {
                     .collect();
 
                 def_block.statements.extend(child_def_block.statements);
+                alloc_block.statements.extend(child_alloc_block.statements);
                 exec_block.statements.extend(child_exec_block.statements);
                 loop_idents.extend(child_loop_idents);
                 child_store_idents.push(child_store_ident);
-                (def_block, exec_block, loop_idents, child_store_idents)
+                (def_block, alloc_block, exec_block, loop_idents, child_store_idents)
             },
         );
 
@@ -369,13 +379,16 @@ impl Lowerer {
             .concat(),
         };
 
-        let exec_block = Block {
+        let alloc_block = Block {
             statements: [
-                child_exec_block.statements,
+                child_alloc_block.statements,
                 if root { vec![] } else { vec![alloc_statement] }, // TODO: Make not hacky.
-                vec![call],
             ]
             .concat(),
+        };
+
+        let exec_block = Block {
+            statements: [child_exec_block.statements, vec![call]].concat(),
         };
 
         // TODO
@@ -384,6 +397,7 @@ impl Lowerer {
 
         Lowered {
             def_block,
+            alloc_block,
             exec_block,
             loop_idents,
             store_ident,
