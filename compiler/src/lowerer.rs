@@ -96,7 +96,7 @@ impl Lowerer {
         });
         self.input_args.extend(dim_args.clone());
 
-        (Block::EMPTY, Block::EMPTY, loop_idents, arg_ident)
+        (Block::default(), Block::default(), loop_idents, arg_ident)
     }
 
     /// Return function definition block, exec block, (bound, iterator) ident map, and store ident
@@ -114,7 +114,7 @@ impl Lowerer {
             HashMap<char, (String, String)>,
             Vec<String>,
         ) = children.iter().fold(
-            (Block::EMPTY, Block::EMPTY, HashMap::new(), vec![]),
+            (Block::default(), Block::default(), HashMap::new(), vec![]),
             |(mut def_block, mut exec_block, mut loop_idents, mut child_store_idents),
              (child, index)| {
                 let (child_def_block, child_exec_block, child_loop_idents, child_store_ident) =

@@ -24,7 +24,7 @@ fn parse_block_sexp(sexp: &Sexp) -> Block {
             }
             Block { statements }
         }
-        _ => Block::EMPTY,
+        _ => Block::default(),
     }
 }
 
