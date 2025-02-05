@@ -158,7 +158,7 @@ impl Lowerer {
         let (
             child_def_blocks,
             child_alloc_blocks,
-            child_exec_blocks,
+            mut child_exec_blocks, // mut so fragments can be pulled out for fusion
             loop_idents,
             child_store_idents,
         ): (
@@ -301,7 +301,7 @@ impl Lowerer {
         );
 
         // TODO: stop splitting ident map
-        let loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
+        let mut loop_statements: Vec<Statement> = Self::create_empty_loop_statements(
             &schedule,
             &loop_idents
                 .iter()
@@ -314,6 +314,25 @@ impl Lowerer {
             &split_factor_idents,
             &index,
         );
+
+        // paired with loop indices
+        let child_exec_fragments: Vec<(usize, Block)> = schedule
+            .compute_levels
+            .iter()
+            .zip(child_exec_blocks.drain(..))
+            .filter(|(&ind, _)| ind > 0)
+            .map(|(ind, block)| (*ind, block))
+            .collect();
+
+        // fuse any child kernel fragments into the appropriate loop bodies
+        let n_loop_statements = loop_statements.len();
+        for (ind, child_exec_fragment) in child_exec_fragments {
+            let Statement::Loop { body, .. } = &mut loop_statements[n_loop_statements - ind] else {
+                panic!("Expected `Statement` to be of `Loop` variant")
+            };
+            body.statements
+                .extend(child_exec_fragment.statements.clone());
+        }
 
         let loop_stack: Statement =
             loop_statements
