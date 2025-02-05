@@ -152,15 +152,30 @@ impl Lowerer {
             .collect();
 
         // recursively lower children
-        let (child_def_block, child_alloc_block, child_exec_block, loop_idents, child_store_idents): (
-            Block,
-            Block,
-            Block,
+        // note: the reason this is a fold instead of a map is because the loop_idents are
+        //       determined jointly with all siblings. those idents determined by the first child
+        //       are past to the lower call of the subsequent siblings.
+        let (
+            child_def_blocks,
+            child_alloc_blocks,
+            child_exec_blocks,
+            loop_idents,
+            child_store_idents,
+        ): (
+            Vec<Block>,
+            Vec<Block>,
+            Vec<Block>,
             HashMap<char, (String, String)>,
             Vec<String>,
         ) = children.iter().enumerate().fold(
-            (Block::default(), Block::default(), Block::default(), HashMap::new(), vec![]),
-            |(mut def_block, mut alloc_block, mut exec_block, mut loop_idents, mut child_store_idents),
+            (vec![], vec![], vec![], HashMap::new(), vec![]),
+            |(
+                mut def_blocks,
+                mut alloc_blocks,
+                mut exec_blocks,
+                mut loop_idents,
+                mut child_store_idents,
+            ),
              (ind, (child, index))| {
                 // for mapping between child indexing and current node indexing
                 let child_to_current_index: HashMap<char, char> =
@@ -188,13 +203,19 @@ impl Lowerer {
                     .filter(|(c, _)| !loop_idents.contains_key(c))
                     .collect();
 
-                def_block.statements.extend(child_def_block.statements);
-                alloc_block.statements.extend(child_alloc_block.statements);
-                exec_block.statements.extend(child_exec_block.statements);
+                def_blocks.push(child_def_block);
+                alloc_blocks.push(child_alloc_block);
+                exec_blocks.push(child_exec_block);
                 loop_idents.extend(child_loop_idents);
                 child_store_idents.push(child_store_ident);
 
-                (def_block, alloc_block, exec_block, loop_idents, child_store_idents)
+                (
+                    def_blocks,
+                    alloc_blocks,
+                    exec_blocks,
+                    loop_idents,
+                    child_store_idents,
+                )
             },
         );
 
@@ -325,7 +346,10 @@ impl Lowerer {
 
         let alloc_block = Block {
             statements: [
-                child_alloc_block.statements,
+                child_alloc_blocks
+                    .into_iter()
+                    .flat_map(|block| block.statements)
+                    .collect(),
                 if root { vec![] } else { vec![alloc_statement] }, // TODO: Make not hacky.
             ]
             .concat(),
@@ -334,7 +358,10 @@ impl Lowerer {
         let (def_block, exec_block) = if pruned_loops.is_empty() {
             let def_block = Block {
                 statements: [
-                    child_def_block.statements,
+                    child_def_blocks
+                        .into_iter()
+                        .flat_map(|block| block.statements)
+                        .collect(),
                     vec![Statement::Function {
                         ident: function_ident.clone(),
                         args: [
@@ -392,13 +419,27 @@ impl Lowerer {
             };
 
             let exec_block = Block {
-                statements: [child_exec_block.statements, vec![call]].concat(),
+                statements: [
+                    child_exec_blocks
+                        .into_iter()
+                        .flat_map(|block| block.statements)
+                        .collect(),
+                    vec![call],
+                ]
+                .concat(),
             };
 
             (def_block, exec_block)
         } else {
             let exec_block = Block {
-                statements: [child_exec_block.statements, exec_statements].concat(),
+                statements: [
+                    child_exec_blocks
+                        .into_iter()
+                        .flat_map(|block| block.statements)
+                        .collect(),
+                    exec_statements,
+                ]
+                .concat(),
             };
             (Block::default(), exec_block)
         };
