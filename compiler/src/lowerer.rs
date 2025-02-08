@@ -212,6 +212,7 @@ impl Lowerer {
                 def_blocks.push(child_def_block);
                 alloc_blocks.push(child_alloc_block);
                 exec_blocks.push(child_exec_block);
+                Self::merge_args(&mut def_args, child_def_args);
                 loop_idents.extend(child_loop_idents);
                 child_store_idents.push(child_store_ident);
 
@@ -219,7 +220,7 @@ impl Lowerer {
                     def_blocks,
                     alloc_blocks,
                     exec_blocks,
-                    child_def_args,
+                    def_args,
                     loop_idents,
                     child_store_idents,
                 )
@@ -403,6 +404,8 @@ impl Lowerer {
                 .collect::<Vec<_>>(),
         ]
         .concat();
+
+        Self::merge_args(&mut def_args, child_def_args);
 
         // this will get drained for full kernels and returned populated for fragments
         let call_args: Vec<Arg> = def_args
@@ -727,5 +730,31 @@ impl Lowerer {
             });
         }
         sum_expr.unwrap_or(Expr::Int(0)) // Return 0 if no indices are provided
+    }
+
+    /// Merge two arg lists without duplication, and preferring mutability
+    /// Mostly written by ChatGPT o1
+    fn merge_args(def_args: &mut Vec<Arg>, child_def_args: Vec<Arg>) {
+        for arg in child_def_args {
+            let ident = match &arg.ident {
+                Expr::Ident(s) => s,
+                _ => panic!("Invalid Arg.ident type."),
+            };
+            if let Some(existing) = def_args.iter_mut().find(|e| match &e.ident {
+                Expr::Ident(ei) => ei == ident,
+                _ => false,
+            }) {
+                let incoming_mutable = match &arg.type_ {
+                    Type::Int(m) | Type::Array(m) | Type::ArrayRef(m) => *m,
+                };
+                if incoming_mutable {
+                    match &mut existing.type_ {
+                        Type::Int(em) | Type::Array(em) | Type::ArrayRef(em) => *em = true,
+                    }
+                }
+            } else {
+                def_args.push(arg);
+            }
+        }
     }
 }
