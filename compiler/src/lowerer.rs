@@ -17,6 +17,7 @@ struct Lowered {
     def_block: Block,
     alloc_block: Block,
     exec_block: Block,
+    def_args: Vec<Arg>, // only populated for kernel fragemnts, empty for full kernels
     loop_idents: HashMap<char, (String, String)>,
     store_ident: String,
 }
@@ -110,6 +111,7 @@ impl Lowerer {
             def_block: Block::default(),
             alloc_block: Block::default(),
             exec_block: Block::default(),
+            def_args: Vec::new(),
             loop_idents: loop_idents,
             store_ident: arg_ident,
         }
@@ -159,20 +161,23 @@ impl Lowerer {
             child_def_blocks,
             child_alloc_blocks,
             mut child_exec_blocks, // mut so fragments can be pulled out for fusion
+            mut child_def_args,
             loop_idents,
             child_store_idents,
         ): (
             Vec<Block>,
             Vec<Block>,
             Vec<Block>,
+            Vec<Arg>,
             HashMap<char, (String, String)>,
             Vec<String>,
         ) = children.iter().enumerate().fold(
-            (vec![], vec![], vec![], HashMap::new(), vec![]),
+            (vec![], vec![], vec![], vec![], HashMap::new(), vec![]),
             |(
                 mut def_blocks,
                 mut alloc_blocks,
                 mut exec_blocks,
+                mut def_args,
                 mut loop_idents,
                 mut child_store_idents,
             ),
@@ -193,6 +198,7 @@ impl Lowerer {
                     def_block: child_def_block,
                     alloc_block: child_alloc_block,
                     exec_block: child_exec_block,
+                    def_args: child_def_args,
                     loop_idents: child_loop_idents,
                     store_ident: child_store_ident,
                 } = self.lower_node(&child, pruned_loops, false);
@@ -213,6 +219,7 @@ impl Lowerer {
                     def_blocks,
                     alloc_blocks,
                     exec_blocks,
+                    child_def_args,
                     loop_idents,
                     child_store_idents,
                 )
@@ -374,7 +381,8 @@ impl Lowerer {
             .concat(),
         };
 
-        let args: Vec<Arg> = [
+        // this will get drained for full kernels and returned populated for fragments
+        let mut def_args: Vec<Arg> = [
             child_store_idents
                 .iter()
                 .map(|ident| Arg {
@@ -396,7 +404,8 @@ impl Lowerer {
         ]
         .concat();
 
-        let call_args: Vec<Arg> = args
+        // this will get drained for full kernels and returned populated for fragments
+        let call_args: Vec<Arg> = def_args
             .iter()
             .map(|arg| match (arg.type_.clone(), arg.ident.clone()) {
                 (Type::ArrayRef(mutable), Expr::Ident(s)) => Arg {
@@ -420,7 +429,7 @@ impl Lowerer {
                         .collect(),
                     vec![Statement::Function {
                         ident: function_ident.clone(),
-                        args: args,
+                        args: def_args.drain(..).collect(),
                         body: Block {
                             statements: exec_statements,
                         },
@@ -468,6 +477,7 @@ impl Lowerer {
             def_block,
             alloc_block,
             exec_block,
+            def_args,
             loop_idents,
             store_ident,
         }
