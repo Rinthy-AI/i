@@ -374,6 +374,43 @@ impl Lowerer {
             .concat(),
         };
 
+        let args: Vec<Arg> = [
+            child_store_idents
+                .iter()
+                .map(|ident| Arg {
+                    type_: Type::ArrayRef(false),
+                    ident: Expr::Ident(ident.clone()),
+                })
+                .collect::<Vec<_>>(),
+            vec![Arg {
+                type_: Type::ArrayRef(true),
+                ident: Expr::Ident(store_ident.clone()),
+            }],
+            all_char_indices
+                .iter()
+                .map(|c| Arg {
+                    type_: Type::Int(false),
+                    ident: Expr::Ident(loop_idents[c].0.clone()),
+                })
+                .collect::<Vec<_>>(),
+        ]
+        .concat();
+
+        let call_args: Vec<Arg> = args
+            .iter()
+            .map(|arg| match (arg.type_.clone(), arg.ident.clone()) {
+                (Type::ArrayRef(mutable), Expr::Ident(s)) => Arg {
+                    type_: Type::ArrayRef(mutable),
+                    ident: Expr::Ref(s, mutable),
+                },
+                (Type::Int(mutable), Expr::Ident(s)) => Arg {
+                    type_: Type::ArrayRef(mutable),
+                    ident: Expr::Ident(s),
+                },
+                _ => panic!("Invalid argument."),
+            })
+            .collect();
+
         let (def_block, exec_block) = if pruned_loops.is_empty() {
             let def_block = Block {
                 statements: [
@@ -383,27 +420,7 @@ impl Lowerer {
                         .collect(),
                     vec![Statement::Function {
                         ident: function_ident.clone(),
-                        args: [
-                            child_store_idents
-                                .iter()
-                                .map(|ident| Arg {
-                                    type_: Type::ArrayRef(false),
-                                    ident: Expr::Ident(ident.clone()),
-                                })
-                                .collect::<Vec<_>>(),
-                            vec![Arg {
-                                type_: Type::ArrayRef(true),
-                                ident: Expr::Ident(store_ident.clone()),
-                            }],
-                            all_char_indices
-                                .iter()
-                                .map(|c| Arg {
-                                    type_: Type::Int(false),
-                                    ident: Expr::Ident(loop_idents[c].0.clone()),
-                                })
-                                .collect::<Vec<_>>(),
-                        ]
-                        .concat(),
+                        args: args,
                         body: Block {
                             statements: exec_statements,
                         },
@@ -414,27 +431,7 @@ impl Lowerer {
 
             let call = Statement::Call {
                 ident: function_ident.clone(),
-                args: [
-                    child_store_idents
-                        .iter()
-                        .map(|ident| Arg {
-                            type_: Type::ArrayRef(false),
-                            ident: Expr::Ref(ident.clone(), false),
-                        })
-                        .collect::<Vec<_>>(),
-                    vec![Arg {
-                        type_: Type::ArrayRef(true),
-                        ident: Expr::Ref(store_ident.clone(), true),
-                    }],
-                    all_char_indices
-                        .iter()
-                        .map(|c| Arg {
-                            type_: Type::Int(false),
-                            ident: Expr::Ident(loop_idents[c].0.clone()),
-                        })
-                        .collect::<Vec<_>>(),
-                ]
-                .concat(),
+                args: call_args,
             };
 
             let exec_block = Block {
