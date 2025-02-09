@@ -122,8 +122,12 @@ impl<'a> Parser<'a> {
 
         loop {
             // Parse the index identifier
-            match self.tokenizer.next() {
-                Token::Symbol(s) => {
+            match self.tokenizer.peek()[0] {
+                Token::Symbol(_) => {
+                    // consume the Symbol
+                    let Token::Symbol(s) = self.tokenizer.next() else {
+                        unreachable!()
+                    };
                     let c = s
                         .chars()
                         .next()
@@ -168,6 +172,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
+                Token::Bar => return Ok(splits), // empty splits list
                 _ => {
                     return Err(ParseError::InvalidToken {
                         expected: "Symbol".to_string(),
