@@ -24,9 +24,8 @@ impl Lowerer {
     }
 
     fn get_char_indices(index: &String) -> Vec<char> {
-        let mut indices: Vec<char> = index.chars().collect::<HashSet<_>>().into_iter().collect();
-        indices.sort();
-        indices
+        let mut seen = HashSet::new();
+        index.chars().filter(|c| seen.insert(*c)).collect()
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
