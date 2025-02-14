@@ -8,6 +8,8 @@ mod parser;
 mod render;
 mod tokenizer;
 
+use backend::cuda::CudaBackend;
+
 use crate::backend::block::BlockBackend;
 use crate::backend::rust::RustBackend;
 use crate::lowerer::Lowerer;
@@ -59,7 +61,7 @@ fn main() -> Result<(), String> {
     }
 
     // Validate the target platform
-    if !(target == "rust" || target == "ir") {
+    if !(target == "rust" || target == "ir" || target == "cuda") {
         return Err(format!("Error: Unsupported target '{}'", target));
     }
 
@@ -99,6 +101,7 @@ fn main() -> Result<(), String> {
     let formatted_code = match target {
         "rust" => format_rust_code(format!("fn main() {{ {};}}", RustBackend::render(&block))),
         "ir" => BlockBackend::render(&block),
+        "cuda" => CudaBackend::render(&block),
         &_ => unreachable!(),
     };
 
