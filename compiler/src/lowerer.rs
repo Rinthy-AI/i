@@ -450,7 +450,6 @@ impl Lowerer {
                             &base_iterator_idents[&char_index],
                             &bound_idents[&char_index],
                             &split_factor_idents[&char_index],
-                            *rank,
                         )
                     } else {
                         vec![]
@@ -499,7 +498,6 @@ impl Lowerer {
         base_iterator_ident: &String,
         base_bound_ident: &String,
         split_factors_idents: &Vec<String>,
-        rank: usize,
     ) -> Vec<Statement> {
         let factor_loop_widths: Vec<Expr> = split_factors_idents
             .iter()
@@ -522,9 +520,12 @@ impl Lowerer {
         let mut iterators = factor_loop_iterator;
         iterators.insert(0, Expr::Ident(base_iterator_ident.clone()));
 
-        // remove present loop before total width calculation
-        let current_iterator = iterators.remove(rank);
-        widths.remove(rank);
+        // highest rank iterator iterates elementwise; all others iterate tilewise;
+        // remove prior to total_width calculation
+        let ultimate_iterator = iterators
+            .pop()
+            .expect("Expected non-empty iterator list for index reconstruction");
+        let _ = widths.pop();
 
         assert_eq!(widths.len(), iterators.len());
         let mut total_width: Vec<Expr> = widths
@@ -536,7 +537,7 @@ impl Lowerer {
             })
             .collect();
 
-        total_width.push(current_iterator);
+        total_width.push(ultimate_iterator);
 
         let reconstructed_index = Expr::Op {
             op: '+',
