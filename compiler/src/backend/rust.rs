@@ -36,36 +36,14 @@ impl RustBackend {
             Expr::Ident(s) => s.to_string(),
             Expr::Ref(s, mutable) => format!("&{}{s}", if *mutable { "mut " } else { "" }),
             Expr::Int(x) => format!("{x}"),
-            Expr::Op { op, inputs } => {
-                let prec = |c: char| match c {
-                    '*' | '/' => 2,
-                    '+' | '-' => 1,
-                    _ => 0,
-                };
-                let mp = prec(*op);
-                let parts: Vec<String> = inputs
+            Expr::Op { op, inputs } => format!(
+                "({})",
+                inputs
                     .iter()
-                    .map(|child| {
-                        let s = Self::render_expr(child);
-                        match child {
-                            Expr::Op { op: cop, .. } => {
-                                let cp = prec(*cop);
-                                if cp < mp || cp == 0 {
-                                    format!("({s})")
-                                } else {
-                                    s
-                                }
-                            }
-                            _ => s,
-                        }
-                    })
-                    .collect();
-                if mp == 0 {
-                    format!("({})", parts.join(&format!(" {} ", op)))
-                } else {
-                    parts.join(&format!(" {} ", op))
-                }
-            }
+                    .map(|input| Self::render_expr(&input))
+                    .collect::<Vec<_>>()
+                    .join(&format!(" {op} "))
+            ),
             Expr::Indexed { ident, index } => format!("{ident}[{}]", Self::render_expr(&index),),
         }
     }
