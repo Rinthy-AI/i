@@ -334,16 +334,14 @@ impl CudaBackend {
         match expr {
             Expr::Ident(s) => s.to_string(),
             Expr::Int(x) => format!("{x}"),
-            Expr::Op { op, inputs } => match inputs.len() {
-                1 => Self::render_expr(&inputs[0]).to_string(),
-                2 => format!(
-                    "({} {} {})",
-                    Self::render_expr(&inputs[0]),
-                    op,
-                    Self::render_expr(&inputs[1])
-                ),
-                n => unreachable!("Op with {n} inputs"),
-            },
+            Expr::Op { op, inputs } => format!(
+                "({})",
+                inputs
+                    .iter()
+                    .map(|input| Self::render_expr(&input))
+                    .collect::<Vec<_>>()
+                    .join(&format!(" {op} "))
+            ),
             Expr::Indexed { ident, index } => format!("{ident}[{}]", Self::render_expr(&index)),
             Expr::Alloc { .. } => {
                 unreachable!("Expr::Alloc should be handled in Statement::Declaration")
