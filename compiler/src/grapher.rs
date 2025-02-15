@@ -17,7 +17,7 @@ fn node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {
                 ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => {
                     '*'
                 }
-                ScalarOp::NoOp(_) => unreachable!(),
+                ScalarOp::NoOp(_) => ' ', // never used
             },
             children: match op {
                 ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
