@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
+    backend::Render,
     block::{Arg, Block, Expr, Statement, Type},
-    render::Render,
 };
 
 pub struct CudaBackend;

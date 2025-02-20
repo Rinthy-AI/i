@@ -1,3 +1,4 @@
 target
 compiler/target
 *.swp
+*.i

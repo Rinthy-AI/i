@@ -1,7 +1,42 @@
+use std::fs;
+use std::io::Error;
+use std::path::PathBuf;
+use std::process::Command;
+
+use crate::backend::{Backend, Build, Render};
 use crate::block::{Arg, Block, Expr, Statement, Type};
-use crate::render::Render;
 
 pub struct RustBackend;
+
+impl Backend for RustBackend {}
+
+impl Build for RustBackend {
+    fn build(source: &str) -> Result<PathBuf, Error> {
+        let path_base = "/tmp/ilang";
+        let source_path = format!("{path_base}.rs");
+        let dylib_path = format!("{path_base}.so");
+        fs::write(&source_path, source)?;
+        let build = Command::new("rustc")
+            .args([
+                "--crate-type=dylib",
+                "-o",
+                &dylib_path,
+                &source_path,
+                "-A",
+                "warnings",
+            ])
+            .status();
+        if let Err(e) = build {
+            return Err(e);
+        }
+        let exit = build.unwrap();
+        if !exit.success() {
+            return Err(Error::last_os_error());
+        }
+        Ok(PathBuf::from(dylib_path))
+    }
+}
+
 impl Render for RustBackend {
     fn render(block: &Block) -> String {
         block
@@ -17,8 +52,8 @@ impl RustBackend {
     fn render_type(type_: &Type) -> String {
         match type_ {
             Type::Int(_) => "usize".to_string(),
-            Type::Array(_) => "Vec<f32>".to_string(),
-            Type::ArrayRef(mutable) => format!("&{}Vec<f32>", if *mutable { "mut " } else { "" }),
+            Type::Array(_) => "&[f32]".to_string(),
+            Type::ArrayRef(mutable) => format!("&{}[f32]", if *mutable { "mut " } else { "" }),
         }
     }
     fn render_expr(expr: &Expr) -> String {
@@ -34,7 +69,7 @@ impl RustBackend {
                 )
             }
             Expr::Ident(s) => s.to_string(),
-            Expr::Ref(s, mutable) => format!("&{}{s}", if *mutable { "mut " } else { "" }),
+            Expr::Ref(s, _mutable) => format!("{s}"),
             Expr::Int(x) => format!("{x}"),
             Expr::Op { op, inputs } => format!(
                 "({})",
@@ -80,18 +115,11 @@ impl RustBackend {
             }
 
             Statement::Function { ident, args, body } => format!(
-                "fn {ident}({}) {{{}}}",
-                //"|{}| {{{}}}",
+                "#[no_mangle]\nfn {ident}({}) {{{}}}",
                 args.iter()
                     .map(|Arg { type_, ident }| {
-                        let (Type::Int(mutable) | Type::Array(mutable) | Type::ArrayRef(mutable)) =
-                            type_;
-                        format!(
-                            "{}{}: {}",
-                            if *mutable { "mut " } else { "" },
-                            Self::render_expr(ident),
-                            Self::render_type(type_),
-                        )
+                        let (Type::Int(_) | Type::Array(_) | Type::ArrayRef(_)) = type_;
+                        format!("{}: {}", Self::render_expr(ident), Self::render_type(type_),)
                     })
                     .collect::<Vec<_>>()
                     .join(", "),
