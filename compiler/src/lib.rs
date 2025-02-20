@@ -5,5 +5,4 @@ pub mod graph;
 pub mod grapher;
 pub mod lowerer;
 pub mod parser;
-pub mod render;
 pub mod tokenizer;

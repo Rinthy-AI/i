@@ -5,16 +5,15 @@ mod graph;
 mod grapher;
 mod lowerer;
 mod parser;
-mod render;
 mod tokenizer;
 
 use backend::cuda::CudaBackend;
 
 use crate::backend::block::BlockBackend;
 use crate::backend::rust::RustBackend;
+use crate::backend::Render;
 use crate::lowerer::Lowerer;
 use crate::parser::Parser;
-use crate::render::Render;
 
 use std::io::Read;
 use std::{env, fs, io, process::Command};

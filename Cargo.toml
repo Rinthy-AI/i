@@ -1,6 +1,2 @@
 [workspace]
-members = [
-    "compiler",
-    "macros",
-    "example",
-]
+members = ["compiler", "macros", "ilang-python"]

@@ -1,0 +1,10 @@
+[package]
+name = "ilang"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+compiler = { path = "../compiler" }
+libffi = "3.2.0"
+libloading = "0.8.6"
+pyo3 = "0.23.4"
