@@ -1,12 +1,8 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Display,
-};
+use std::{collections::VecDeque, fmt::Display};
 
-use crate::{
-    block::{Arg, Block, Expr, Statement, Type},
-    render::Render,
-};
+use crate::block::{Arg, Block, Expr, Statement, Type};
+
+use super::Render;
 
 pub struct CudaBackend;
 

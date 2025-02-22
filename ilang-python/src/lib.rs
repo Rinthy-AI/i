@@ -13,6 +13,7 @@ use libffi::{
     middle::{arg, Cif, Type as CifType},
 };
 use pyo3::{
+    exceptions::{PyIndexError, PyValueError},
     prelude::*,
     types::{PyList, PyTuple},
 };
@@ -56,6 +57,9 @@ struct Tensor {
     ptr: ArrayPointer,
     #[pyo3(get)]
     dims: Vec<usize>,
+    #[pyo3(get)]
+    size: usize,
+    capacity: usize,
 }
 
 #[pymethods]
@@ -63,24 +67,54 @@ impl Tensor {
     #[new]
     fn py_new(data_list: &Bound<PyList>, shape: &Bound<PyTuple>) -> PyResult<Self> {
         let data: Vec<f32> = data_list.extract()?;
+        let dims: Vec<usize> = shape.extract()?;
+        let size = dims.iter().product();
+        // Grab the capacity just in case it doesn't equal size for use in Drop later
+        let capacity = data.capacity();
+
+        if data.len() != size {
+            return Err(PyErr::new::<PyValueError, _>(
+                "'dims' do not match size of 'data'.",
+            ));
+        }
+
         let ptr = ArrayPointer::from_ptr(data.as_ptr());
         std::mem::forget(data);
-        let dims = shape.extract()?;
-        Ok(Tensor { ptr, dims })
+
+        Ok(Tensor {
+            ptr,
+            dims,
+            size,
+            capacity,
+        })
     }
+
+    fn __getitem__(&self, index: i32) -> PyResult<f32> {
+        if index < 0 || index as usize >= self.size {
+            return Err(PyErr::new::<PyIndexError, _>("Index out of bounds."));
+        }
+        Ok(self.as_slice()[index as usize])
+    }
+
     fn __repr__(&self) -> String {
-        let data =
-            unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.dims.iter().product()) };
-        format!("Tensor {{ data: {:?}, shape: {:?} }}", data, self.dims)
+        format!(
+            "Tensor {{ data: {:?}, shape: {:?} }}",
+            self.as_slice(),
+            self.dims
+        )
     }
-    fn __del__(&self) {
-        let _data = unsafe {
-            Vec::from_raw_parts(
-                self.ptr.as_mut_ptr(),
-                self.dims.iter().product(),
-                self.dims.iter().product(),
-            )
-        };
+}
+
+impl Tensor {
+    #[inline(always)]
+    fn as_slice(&self) -> &[f32] {
+        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.size) }
+    }
+}
+
+impl Drop for Tensor {
+    fn drop(&mut self) {
+        let _ = unsafe { Vec::from_raw_parts(self.ptr.as_mut_ptr(), self.size, self.capacity) };
     }
 }
 
@@ -88,7 +122,10 @@ impl TryFrom<String> for Component {
     type Error = PyErr;
     fn try_from(src: String) -> Result<Self, Self::Error> {
         // TODO better error handling here
-        let (_ast, expr_bank) = Parser::new(&src).unwrap().parse().unwrap();
+        let (_ast, expr_bank) = Parser::new(&src)
+            .map_err(|err| PyErr::new::<PyValueError, _>(err))?
+            .parse()
+            .map_err(|err| PyErr::new::<PyValueError, _>(err.to_string()))?;
         let graph = grapher::graph(&expr_bank);
         Ok(Component { _src: src, graph })
     }
@@ -109,35 +146,27 @@ impl Component {
     }
     #[pyo3(signature = (*args))]
     fn realize(&self, args: &Bound<'_, PyTuple>) -> PyResult<()> {
-        let tensors: Vec<Tensor> = args.extract()?;
-        let data: Vec<&Tensor> = tensors.iter().collect();
+        let data: Vec<Tensor> = args.extract()?;
         let block = Lowerer::new().lower(&self.graph);
         run_rust_impl(&block, &data)
     }
 }
 
-fn run_rust_impl(schedule: &Block, data: &[&Tensor]) -> PyResult<()> {
+fn run_rust_impl(schedule: &Block, data: &[Tensor]) -> PyResult<()> {
     // println!("data: {:?}", data);
-    let functions = schedule
+    let exec_func = schedule
         .statements
         .iter()
-        .filter(|s| match s {
+        .filter(|&s| match s {
             Statement::Function { .. } => true,
             _ => false,
         })
-        .collect::<Vec<&Statement>>();
-    if functions.is_empty() {
-        // TODO return proper error
-        panic!("no functions")
-    }
-    let exec_func = functions.last().unwrap();
+        .last()
+        .ok_or_else(|| PyErr::new::<PyValueError, _>("No functions provided."))?;
     let mut args = vec![];
-    let data_ptrs = data
-        .iter()
-        .map(|t| unsafe { std::slice::from_raw_parts(t.ptr.as_ptr(), t.dims.iter().product()) })
-        .collect::<Vec<&[f32]>>();
-    for (ptr_idx, tensor) in data.iter().enumerate() {
-        args.push(arg(&data_ptrs[ptr_idx]));
+    // let data_ptrs = data.iter().map(|t| t.as_slice()).collect::<Vec<&[f32]>>();
+    for tensor in data {
+        args.push(arg(&tensor.as_slice()));
         for dim in tensor.dims.iter() {
             args.push(arg(dim));
         }
