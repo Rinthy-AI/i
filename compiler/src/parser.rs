@@ -85,14 +85,19 @@ impl<'a> Parser<'a> {
     fn parse_index_expr(&mut self) -> Result<IndexExpr, ParseError> {
         let index_expr = self.parse_unscheduled_index_expr()?;
         match self.tokenizer.peek()[0] {
-            Token::Bar => Ok(IndexExpr {
-                op: index_expr.op,
-                out: index_expr.out,
-                schedule: Schedule {
-                    splits: self.parse_splits()?,
-                    loop_order: self.parse_loop_order()?,
-                },
-            }),
+            Token::Bar => {
+                let splits = self.parse_splits()?;
+                let (loop_order, compute_levels) = self.parse_loop_order()?;
+                Ok(IndexExpr {
+                    op: index_expr.op,
+                    out: index_expr.out,
+                    schedule: Schedule {
+                        splits: splits,
+                        loop_order: loop_order,
+                        compute_levels: compute_levels,
+                    },
+                })
+            }
             _ => Ok(index_expr),
         }
     }
@@ -106,6 +111,7 @@ impl<'a> Parser<'a> {
                 schedule: Schedule {
                     splits: HashMap::new(),
                     loop_order: vec![],
+                    compute_levels: vec![],
                 },
             }),
             _ => Err(ParseError::InvalidToken {
@@ -182,13 +188,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_loop_order(&mut self) -> Result<Vec<(char, usize)>, ParseError> {
+    fn parse_loop_order(&mut self) -> Result<(Vec<(char, usize)>, Vec<usize>), ParseError> {
         // Skip the initial Bar token
         self.tokenizer.next();
         match self.tokenizer.next() {
             Token::Symbol(s) => {
-                let mut result = Vec::new();
+                let mut loop_order = Vec::new();
+                let mut compute_levels = Vec::new();
                 let mut chars = s.chars().peekable();
+                let mut compute_level = 0;
                 while let Some(c) = chars.next() {
                     if c.is_alphabetic() {
                         let mut apostrophe_count = 0;
@@ -202,10 +210,35 @@ impl<'a> Parser<'a> {
                             }
                         }
 
-                        result.push((c, apostrophe_count));
+                        loop_order.push((c, apostrophe_count));
                     }
+
+                    if let Some(&'(') = chars.peek() {
+                        chars.next(); // Consume '('
+                        while let Some(inner) = chars.peek() {
+                            if *inner == ')' {
+                                chars.next(); // Consume ')'
+                                break;
+                            } else if *inner == ',' {
+                                chars.next(); // Consume ')'
+                            } else if inner.is_ascii_digit() {
+                                let ind: usize =
+                                    chars.next().unwrap().to_digit(10).unwrap() as usize;
+                                if compute_levels.len() <= ind {
+                                    compute_levels.resize(ind + 1, 0);
+                                }
+                                compute_levels[ind] = compute_level + 1;
+                            } else {
+                                return Err(ParseError::InvalidToken {
+                                    expected: "Digit inside computation level parentheses"
+                                        .to_string(),
+                                });
+                            }
+                        }
+                    }
+                    compute_level += 1;
                 }
-                Ok(result)
+                Ok((loop_order, compute_levels))
             }
             _ => Err(ParseError::InvalidToken {
                 expected: "Comma or end of schedule".to_string(),
