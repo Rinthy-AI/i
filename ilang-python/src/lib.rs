@@ -59,6 +59,7 @@ struct Tensor {
     dims: Vec<usize>,
     #[pyo3(get)]
     size: usize,
+    #[pyo3(get)]
     capacity: usize,
 }
 
@@ -106,7 +107,6 @@ impl Tensor {
 }
 
 impl Tensor {
-    #[inline(always)]
     fn as_slice(&self) -> &[f32] {
         unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.size) }
     }
@@ -121,7 +121,6 @@ impl Drop for Tensor {
 impl TryFrom<String> for Component {
     type Error = PyErr;
     fn try_from(src: String) -> Result<Self, Self::Error> {
-        // TODO better error handling here
         let (_ast, expr_bank) = Parser::new(&src)
             .map_err(|err| PyErr::new::<PyValueError, _>(err))?
             .parse()
@@ -153,7 +152,6 @@ impl Component {
 }
 
 fn run_rust_impl(schedule: &Block, data: &[Tensor]) -> PyResult<()> {
-    // println!("data: {:?}", data);
     let exec_func = schedule
         .statements
         .iter()
@@ -164,9 +162,9 @@ fn run_rust_impl(schedule: &Block, data: &[Tensor]) -> PyResult<()> {
         .last()
         .ok_or_else(|| PyErr::new::<PyValueError, _>("No functions provided."))?;
     let mut args = vec![];
-    // let data_ptrs = data.iter().map(|t| t.as_slice()).collect::<Vec<&[f32]>>();
-    for tensor in data {
-        args.push(arg(&tensor.as_slice()));
+    let data_ptrs = data.iter().map(|t| t.as_slice()).collect::<Vec<&[f32]>>();
+    for (ptr_idx, tensor) in data.iter().enumerate() {
+        args.push(arg(&data_ptrs[ptr_idx]));
         for dim in tensor.dims.iter() {
             args.push(arg(dim));
         }

@@ -12,6 +12,7 @@ impl Backend for RustBackend {}
 
 impl Build for RustBackend {
     fn build(source: &str) -> Result<PathBuf, Error> {
+        // TODO this is linux-specific, but we should add other impls for mac/win
         let path_base = "/tmp/ilang";
         let source_path = format!("{path_base}.rs");
         let dylib_path = format!("{path_base}.so");
@@ -24,6 +25,7 @@ impl Build for RustBackend {
                 &source_path,
                 "-A",
                 "warnings",
+                "-O",
             ])
             .status();
         if let Err(e) = build {
