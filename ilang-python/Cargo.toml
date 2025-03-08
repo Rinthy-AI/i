@@ -7,4 +7,7 @@ edition = "2021"
 compiler = { path = "../compiler" }
 libffi = "3.2.0"
 libloading = "0.8.6"
-pyo3 = "0.23.4"
+
+[dependencies.pyo3]
+version = "0.23.4"
+features = ["extension-module"]
