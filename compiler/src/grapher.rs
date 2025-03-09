@@ -72,7 +72,5 @@ fn node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {
 }
 
 pub fn graph(expr_bank: &ExprBank) -> Graph {
-    Graph {
-        root: node(&ExprRef(expr_bank.0.len() - 1), &expr_bank),
-    }
+    Graph::new(node(&ExprRef(expr_bank.0.len() - 1), &expr_bank))
 }

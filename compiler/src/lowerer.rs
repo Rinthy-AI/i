@@ -39,7 +39,7 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let lowered = self.lower_node(&graph.root, HashSet::new(), true);
+        let lowered = self.lower_node(graph.root(), HashSet::new(), true);
         Block {
             statements: [
                 lowered.def_block.statements,

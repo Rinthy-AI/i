@@ -33,5 +33,15 @@ impl Node {
 
 #[derive(Clone, Debug)]
 pub struct Graph {
-    pub root: Node,
+    root: Node,
+}
+
+impl Graph {
+    pub fn new(root: Node) -> Self {
+        Self { root }
+    }
+
+    pub fn root(&self) -> &Node {
+        &self.root
+    }
 }
