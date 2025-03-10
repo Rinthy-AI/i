@@ -29,6 +29,13 @@ impl Node {
             Self::Leaf { index, .. } | Self::Interior { index, .. } => index.to_string(),
         }
     }
+
+    pub fn children(&self) -> Option<&Vec<(Node, String)>> {
+        match self {
+            Node::Leaf { .. } => None,
+            Node::Interior { children, .. } => Some(&children),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

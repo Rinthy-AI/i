@@ -71,9 +71,17 @@ impl Lowerer {
             Node::Interior {
                 index,
                 op,
-                children,
                 schedule,
-            } => self.lower_interior_node(index, op, children, schedule, pruned_loops, root),
+                ..
+            } => self.lower_interior_node(
+                index,
+                op,
+                node.children()
+                    .expect("Expected children for interior node."),
+                schedule,
+                pruned_loops,
+                root,
+            ),
         }
     }
 
