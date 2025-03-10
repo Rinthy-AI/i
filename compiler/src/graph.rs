@@ -37,8 +37,8 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub fn new(root: Node) -> Self {
-        Self { nodes: vec![root] }
+    pub fn new(nodes: Vec<Node>) -> Self {
+        Self { nodes }
     }
 
     pub fn root(&self) -> &Node {
