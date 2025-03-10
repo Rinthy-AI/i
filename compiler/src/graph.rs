@@ -33,15 +33,15 @@ impl Node {
 
 #[derive(Clone, Debug)]
 pub struct Graph {
-    root: Node,
+    nodes: Vec<Node>,
 }
 
 impl Graph {
     pub fn new(root: Node) -> Self {
-        Self { root }
+        Self { nodes: vec![root] }
     }
 
     pub fn root(&self) -> &Node {
-        &self.root
+        &self.nodes[0]
     }
 }
