@@ -130,7 +130,7 @@ impl Lowerer {
         &mut self,
         index: &String,
         op: &char,
-        children: &Vec<(Node, String)>,
+        children: Vec<(&Node, &String)>,
         schedule: &Schedule,
         pruned_loops: HashSet<(char, usize)>,
         root: bool,
@@ -308,10 +308,7 @@ impl Lowerer {
                 .map(|(c, (_, ident))| (*c, ident.clone()))
                 .collect(),
             &child_store_idents,
-            &children
-                .iter()
-                .map(|(child, index)| index.clone())
-                .collect(),
+            children.iter().map(|(child, index)| *index).collect(),
             &store_ident,
             &index,
         );
@@ -510,7 +507,7 @@ impl Lowerer {
         bound_idents: &HashMap<char, String>,
         base_iterator_idents: &HashMap<char, String>,
         child_store_idents: &Vec<String>,
-        child_indices: &Vec<String>,
+        child_indices: Vec<&String>,
         store_ident: &String,
         index: &String,
     ) -> Statement {

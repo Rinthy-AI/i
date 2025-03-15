@@ -32,10 +32,12 @@ impl Node {
         }
     }
 
-    pub fn children(&self) -> Option<&Vec<(Node, String)>> {
+    pub fn children(&self) -> Option<Vec<(&Node, &String)>> {
         match self {
             Node::Leaf { .. } => None,
-            Node::Interior { children, .. } => Some(&children),
+            Node::Interior { children, .. } => {
+                Some(children.iter().map(|(node, index)| (node, index)).collect())
+            }
         }
     }
 }
