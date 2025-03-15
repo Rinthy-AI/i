@@ -323,14 +323,26 @@ impl Lowerer {
             &index,
         );
 
-        // paired with loop indices
-        let child_exec_fragments: Vec<(usize, Block)> = schedule
-            .compute_levels
+        let compute_levels = &schedule.compute_levels;
+
+        // Collect the indices of blocks where compute_levels[ind] > 0
+        let indices_to_drain: Vec<usize> = child_exec_blocks
             .iter()
-            .zip(child_exec_blocks.drain(..))
-            .filter(|(&ind, _)| ind > 0)
-            .map(|(ind, block)| (*ind, block))
+            .enumerate()
+            .filter(|(i, _)| compute_levels.get(*i).map_or(false, |&ind| ind > 0))
+            .map(|(i, _)| i)
             .collect();
+
+        // Drain the blocks in reverse order to avoid shifting issues
+        let mut child_exec_fragments = Vec::new();
+        for &i in indices_to_drain.iter().rev() {
+            let block = child_exec_blocks.remove(i);
+            let ind = compute_levels[i];
+            child_exec_fragments.push((ind, block));
+        }
+
+        // Reverse to maintain the original order of drained items
+        child_exec_fragments.reverse();
 
         // fuse any child kernel fragments into the appropriate loop bodies
         let n_loop_statements = loop_statements.len();
