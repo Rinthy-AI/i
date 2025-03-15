@@ -2,7 +2,6 @@ mod ast;
 mod backend;
 mod block;
 mod graph;
-mod grapher;
 mod lowerer;
 mod parser;
 mod render;
@@ -84,7 +83,7 @@ fn main() -> Result<(), String> {
     let block = match source {
         "i" => {
             let (_ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
-            let graph = grapher::graph(&expr_bank);
+            let graph = graph::graph(&expr_bank);
 
             // get IndexExpr
             let crate::ast::Expr::Index(_) = expr_bank.0[0] else {
