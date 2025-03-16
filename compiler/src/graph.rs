@@ -31,15 +31,6 @@ impl Node {
             Self::Leaf { index, .. } | Self::Interior { index, .. } => index.to_string(),
         }
     }
-
-    pub fn children(&self) -> Vec<(&Node, &String)> {
-        match self {
-            Node::Leaf { .. } => vec![],
-            Node::Interior { children, .. } => {
-                children.iter().map(|(node, index)| (node, index)).collect()
-            }
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -55,6 +46,16 @@ impl Graph {
 
     pub fn root(&self) -> &Node {
         &self.nodes[0]
+    }
+
+    pub fn children(node: &Node) -> Vec<(&Node, &String)> {
+        match node {
+            Node::Leaf { .. } => vec![],
+            Node::Interior { children, .. } => children
+                .iter()
+                .map(|(child, index)| (child, index))
+                .collect(),
+        }
     }
 
     fn add_node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {

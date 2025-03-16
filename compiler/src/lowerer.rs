@@ -39,7 +39,7 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let lowered = self.lower_node(graph.root(), HashSet::new(), true);
+        let lowered = self.lower_node(graph, graph.root(), HashSet::new(), true);
         Block {
             statements: [
                 lowered.def_block.statements,
@@ -62,6 +62,7 @@ impl Lowerer {
     /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_node(
         &mut self,
+        graph: &Graph,
         node: &Node,
         pruned_loops: HashSet<(char, usize)>,
         root: bool,
@@ -73,7 +74,15 @@ impl Lowerer {
                 op,
                 schedule,
                 ..
-            } => self.lower_interior_node(index, op, node.children(), schedule, pruned_loops, root),
+            } => self.lower_interior_node(
+                graph,
+                index,
+                op,
+                Graph::children(node),
+                schedule,
+                pruned_loops,
+                root,
+            ),
         }
     }
 
@@ -120,6 +129,7 @@ impl Lowerer {
     /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
     fn lower_interior_node(
         &mut self,
+        graph: &Graph,
         index: &String,
         op: &char,
         children: Vec<(&Node, &String)>,
@@ -201,7 +211,7 @@ impl Lowerer {
                     def_args: child_def_args,
                     loop_idents: child_loop_idents,
                     store_ident: child_store_ident,
-                } = self.lower_node(&child, pruned_loops, false);
+                } = self.lower_node(graph, &child, pruned_loops, false);
 
                 let child_loop_idents: HashMap<char, (String, String)> = child_loop_idents
                     .into_iter()
