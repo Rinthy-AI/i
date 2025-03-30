@@ -1,128 +1,166 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::ast::{
     BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NoOp, ScalarOp, Schedule, UnaryOp,
 };
 
+type NodeRef = Rc<RefCell<Node>>;
+
 #[derive(Clone, Debug)]
-pub enum Node {
-    Leaf {
-        index: String,
-    },
-    Interior {
-        index: String,
-        op: char,
-        children: Vec<(Node, String)>, // the child node and the index according to current `Node`
-        schedule: Schedule,
-    },
+pub enum NodeBody {
+    Leaf,
+    Interior { op: char, schedule: Schedule },
+}
+
+#[derive(Clone, Debug)]
+pub struct Node {
+    pub index: String,
+    pub body: NodeBody,
+    pub parents: Vec<NodeRef>,
+    children: Vec<(NodeRef, String)>, // child node and its index according to the current Node
 }
 
 impl Node {
-    pub fn get_leaves_mut(&mut self) -> Vec<&mut Node> {
-        match self {
-            Node::Leaf { .. } => vec![self],
-            Node::Interior { children, .. } => children
-                .iter_mut()
-                .flat_map(|(child, _index)| child.get_leaves_mut())
-                .collect(),
-        }
+    pub fn children(&self) -> Vec<(Node, String)> {
+        self.children
+            .iter()
+            .map(|(child_ref, index)| (child_ref.borrow().clone(), index.clone()))
+            .collect()
     }
+}
 
-    pub fn index(&self) -> String {
-        match self {
-            Self::Leaf { index, .. } | Self::Interior { index, .. } => index.to_string(),
-        }
+fn get_leftmost_parent_of_leaf(node: &NodeRef) -> Option<NodeRef> {
+    let mut current = node.clone();
+    let mut parent = None;
+
+    loop {
+        let next = {
+            let node = current.borrow();
+            if node.children.is_empty() {
+                return parent;
+            }
+            node.children[0].0.clone()
+        };
+        parent = Some(current);
+        current = next;
     }
+}
 
-    pub fn children(&self) -> Option<&Vec<(Node, String)>> {
-        match self {
-            Node::Leaf { .. } => None,
-            Node::Interior { children, .. } => Some(&children),
-        }
+fn get_leftmost_leaf(node_ref: &NodeRef) -> NodeRef {
+    let mut current = node_ref.clone();
+    loop {
+        let next = {
+            let node = current.borrow();
+            if node.children.is_empty() {
+                return current.clone();
+            }
+            node.children[0].0.clone()
+        };
+        current = next;
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Graph {
-    nodes: Vec<Node>,
+    nodes: Vec<NodeRef>,
 }
 
 impl Graph {
-    pub fn new(nodes: Vec<Node>) -> Self {
-        Self { nodes }
+    pub fn new() -> Self {
+        Self { nodes: Vec::new() }
     }
 
-    pub fn root(&self) -> &Node {
-        &self.nodes[0]
+    pub fn root(&self) -> NodeRef {
+        self.nodes.last().expect("Graph is empty").clone()
     }
-}
 
-fn node(expr_ref: &ExprRef, expr_bank: &ExprBank) -> Node {
-    let Some(expr) = &expr_bank.0.get(expr_ref.0) else {
-        panic!("Expression Bank is empty.")
-    };
-    match expr {
-        Expr::Index(IndexExpr { op, out, schedule }) => Node::Interior {
-            index: out.0.clone(),
-            op: match op {
-                ScalarOp::UnaryOp(UnaryOp::Accum(_)) | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => {
-                    '+'
-                }
-                ScalarOp::UnaryOp(UnaryOp::Prod(_)) | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => {
-                    '*'
-                }
-                ScalarOp::NoOp(_) => ' ', // never used
-            },
-            children: match op {
-                ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
-                | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1)) => vec![
-                    (
-                        Node::Leaf {
-                            index: in0.0.clone(),
-                        },
-                        in0.0.clone(),
-                    ),
-                    (
-                        Node::Leaf {
-                            index: in1.0.clone(),
-                        },
-                        in1.0.clone(),
-                    ),
-                ],
-                ScalarOp::UnaryOp(UnaryOp::Accum(in0)) | ScalarOp::UnaryOp(UnaryOp::Prod(in0)) => {
-                    vec![(
-                        Node::Leaf {
-                            index: in0.0.clone(),
-                        },
-                        in0.0.clone(),
-                    )]
-                }
-                ScalarOp::NoOp(NoOp(in0)) => vec![(
-                    Node::Leaf {
-                        index: in0.0.clone(),
-                    },
-                    in0.0.clone(),
-                )],
-            },
-            schedule: schedule.clone(),
-        },
-        Expr::Combinator(combinator) => match combinator {
-            Combinator::Chain(left_ref, right_ref) => {
-                let left = node(left_ref, expr_bank);
-                let mut right = node(right_ref, expr_bank);
-                if let Node::Interior { .. } = right {
-                    if let Some(first) = right.get_leaves_mut().first_mut() {
-                        **first = left;
-                        right
-                    } else {
-                        panic!("Right expr in `Chain` has no children.")
+    pub fn add_node(
+        &mut self,
+        index: String,
+        body: NodeBody,
+        parents: Vec<NodeRef>,
+        children: Vec<(NodeRef, String)>,
+    ) -> NodeRef {
+        let node = Rc::new(RefCell::new(Node {
+            index: index.clone(),
+            body,
+            parents: parents.clone(),
+            children,
+        }));
+
+        for p in parents {
+            p.borrow_mut()
+                .children
+                .push((Rc::clone(&node), index.clone()));
+        }
+
+        self.nodes.push(Rc::clone(&node));
+        node
+    }
+
+    fn from_expr_ref_with_expr_bank(
+        &mut self,
+        expr_ref: &ExprRef,
+        expr_bank: &ExprBank,
+        parents: Vec<NodeRef>,
+    ) -> NodeRef {
+        let Some(expr) = &expr_bank.0.get(expr_ref.0) else {
+            panic!("Expression Bank is empty.")
+        };
+
+        match expr {
+            Expr::Index(IndexExpr { op, out, schedule }) => {
+                let children = match op {
+                    ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
+                    | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1)) => vec![
+                        (
+                            self.add_node(in0.0.clone(), NodeBody::Leaf, vec![], vec![]),
+                            in0.0.clone(),
+                        ),
+                        (
+                            self.add_node(in1.0.clone(), NodeBody::Leaf, vec![], vec![]),
+                            in1.0.clone(),
+                        ),
+                    ],
+                    ScalarOp::UnaryOp(UnaryOp::Accum(in0))
+                    | ScalarOp::UnaryOp(UnaryOp::Prod(in0))
+                    | ScalarOp::NoOp(NoOp(in0)) => {
+                        vec![(
+                            self.add_node(in0.0.clone(), NodeBody::Leaf, vec![], vec![]),
+                            in0.0.clone(),
+                        )]
                     }
-                } else {
-                    panic!("Right expr in `Chain` is a leaf node.")
-                }
+                };
+                let op = match op {
+                    ScalarOp::UnaryOp(UnaryOp::Accum(_))
+                    | ScalarOp::BinaryOp(BinaryOp::Add(_, _)) => '+',
+                    ScalarOp::UnaryOp(UnaryOp::Prod(_))
+                    | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
+                    ScalarOp::NoOp(_) => ' ', // never used
+                };
+                let body = NodeBody::Interior {
+                    op,
+                    schedule: schedule.clone(),
+                };
+                self.add_node(out.0.clone(), body, parents, children)
             }
-        },
+            Expr::Combinator(Combinator::Chain(left_ref, right_ref)) => {
+                let left = self.from_expr_ref_with_expr_bank(left_ref, expr_bank, parents.clone());
+                let right = self.from_expr_ref_with_expr_bank(right_ref, expr_bank, parents);
+                if let Some(parent) = get_leftmost_parent_of_leaf(&right) {
+                    let mut parent_node = parent.borrow_mut();
+                    parent_node.children[0] =
+                        (Rc::clone(&left), parent_node.children[0].1.to_string());
+                }
+                right
+            }
+        }
     }
-}
 
-pub fn graph(expr_bank: &ExprBank) -> Graph {
-    Graph::new(vec![node(&ExprRef(expr_bank.0.len() - 1), &expr_bank)])
+    pub fn from_expr_bank(expr_bank: &ExprBank) -> Graph {
+        let mut graph = Self::new();
+        graph.from_expr_ref_with_expr_bank(&ExprRef(expr_bank.0.len() - 1), expr_bank, vec![]);
+        graph
+    }
 }

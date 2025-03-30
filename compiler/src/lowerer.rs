@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::Schedule;
 use crate::block::{Arg, Block, Expr, Statement, Type};
-use crate::graph::{Graph, Node};
+use crate::graph::{Graph, Node, NodeBody};
 
 pub struct Lowerer {
     input_args: Vec<Arg>,
@@ -39,7 +39,7 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Block {
-        let lowered = self.lower_node(graph.root(), HashSet::new(), true);
+        let lowered = self.lower_node(&*graph.root().borrow(), HashSet::new(), true);
         Block {
             statements: [
                 lowered.def_block.statements,
@@ -66,19 +66,13 @@ impl Lowerer {
         pruned_loops: HashSet<(char, usize)>,
         root: bool,
     ) -> Lowered {
-        match node {
-            Node::Leaf { index, .. } => self.lower_leaf_node(&index),
-            Node::Interior {
-                index,
-                op,
-                schedule,
-                ..
-            } => self.lower_interior_node(
-                index,
-                op,
-                node.children()
-                    .expect("Expected children for interior node."),
-                schedule,
+        match &node.body {
+            NodeBody::Leaf => self.lower_leaf_node(&node.index),
+            NodeBody::Interior { op, schedule } => self.lower_interior_node(
+                &node.index,
+                &op,
+                &node.children(),
+                &schedule,
                 pruned_loops,
                 root,
             ),
@@ -192,9 +186,9 @@ impl Lowerer {
              (ind, (child, index))| {
                 // for mapping between child indexing and current node indexing
                 let child_to_current_index: HashMap<char, char> =
-                    child.index().chars().zip(index.chars()).collect();
+                    child.index.chars().zip(index.chars()).collect();
                 let current_to_child_index: HashMap<char, char> =
-                    index.chars().zip(child.index().chars()).collect();
+                    index.chars().zip(child.index.chars()).collect();
 
                 let pruned_loops: HashSet<(char, usize)> = schedule.loop_order
                     [..schedule.compute_levels[ind]]

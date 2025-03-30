@@ -11,6 +11,7 @@ use backend::cuda::CudaBackend;
 
 use crate::backend::block::BlockBackend;
 use crate::backend::rust::RustBackend;
+use crate::graph::Graph;
 use crate::lowerer::Lowerer;
 use crate::parser::Parser;
 use crate::render::Render;
@@ -83,7 +84,7 @@ fn main() -> Result<(), String> {
     let block = match source {
         "i" => {
             let (_ast, expr_bank) = Parser::new(&input)?.parse().unwrap();
-            let graph = graph::graph(&expr_bank);
+            let graph = Graph::from_expr_bank(&expr_bank);
 
             // get IndexExpr
             let crate::ast::Expr::Index(_) = expr_bank.0[0] else {
