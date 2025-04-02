@@ -75,6 +75,12 @@ impl Graph {
         self.nodes.last().expect("Graph is empty").clone()
     }
 
+    pub fn from_expr_bank(expr_bank: &ExprBank) -> Graph {
+        let mut graph = Self::new();
+        graph.from_expr_ref_with_expr_bank(&ExprRef(expr_bank.0.len() - 1), expr_bank, vec![]);
+        graph
+    }
+
     fn add_node(
         &mut self,
         index: String,
@@ -156,11 +162,5 @@ impl Graph {
                 right
             }
         }
-    }
-
-    pub fn from_expr_bank(expr_bank: &ExprBank) -> Graph {
-        let mut graph = Self::new();
-        graph.from_expr_ref_with_expr_bank(&ExprRef(expr_bank.0.len() - 1), expr_bank, vec![]);
-        graph
     }
 }
