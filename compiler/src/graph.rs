@@ -75,7 +75,7 @@ impl Graph {
         self.nodes.last().expect("Graph is empty").clone()
     }
 
-    pub fn add_node(
+    fn add_node(
         &mut self,
         index: String,
         body: NodeBody,
