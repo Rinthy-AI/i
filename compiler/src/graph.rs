@@ -1,11 +1,10 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use crate::ast::{
     BinaryOp, Combinator, Expr, ExprBank, ExprRef, IndexExpr, NoOp, ScalarOp, Schedule, UnaryOp,
 };
 
-type NodeRef = Rc<RefCell<Node>>;
+type NodeRef = Arc<Mutex<Node>>;
 
 #[derive(Clone, Debug)]
 pub enum NodeBody {
@@ -25,22 +24,22 @@ impl Node {
     pub fn children(&self) -> Vec<(Node, String)> {
         self.children
             .iter()
-            .map(|(child_ref, index)| (child_ref.borrow().clone(), index.clone()))
+            .map(|(child_ref, index)| (child_ref.lock().unwrap().clone(), index.clone()))
             .collect()
     }
 }
 
 fn get_leftmost_parent_of_leaf(node: &NodeRef) -> Option<NodeRef> {
-    let mut current = node.clone();
+    let mut current = Arc::clone(node);
     let mut parent = None;
 
     loop {
         let next = {
-            let node = current.borrow();
+            let node = current.lock().unwrap();
             if node.children.is_empty() {
                 return parent;
             }
-            node.children[0].0.clone()
+            Arc::clone(&node.children[0].0)
         };
         parent = Some(current);
         current = next;
@@ -48,14 +47,14 @@ fn get_leftmost_parent_of_leaf(node: &NodeRef) -> Option<NodeRef> {
 }
 
 fn get_leftmost_leaf(node_ref: &NodeRef) -> NodeRef {
-    let mut current = node_ref.clone();
+    let mut current = Arc::clone(node_ref);
     loop {
         let next = {
-            let node = current.borrow();
+            let node = current.lock().unwrap();
             if node.children.is_empty() {
-                return current.clone();
+                return Arc::clone(&current);
             }
-            node.children[0].0.clone()
+            Arc::clone(&node.children[0].0)
         };
         current = next;
     }
@@ -72,7 +71,7 @@ impl Graph {
     }
 
     pub fn root(&self) -> NodeRef {
-        self.nodes.last().expect("Graph is empty").clone()
+        Arc::clone(self.nodes.last().expect("Graph is empty"))
     }
 
     pub fn from_expr_bank(expr_bank: &ExprBank) -> Graph {
@@ -88,7 +87,7 @@ impl Graph {
         parents: Vec<NodeRef>,
         children: Vec<(NodeRef, String)>,
     ) -> NodeRef {
-        let node = Rc::new(RefCell::new(Node {
+        let node = Arc::new(Mutex::new(Node {
             index: index.clone(),
             body,
             parents: parents.clone(),
@@ -96,12 +95,13 @@ impl Graph {
         }));
 
         for p in parents {
-            p.borrow_mut()
+            p.lock()
+                .unwrap()
                 .children
-                .push((Rc::clone(&node), index.clone()));
+                .push((Arc::clone(&node), index.clone()));
         }
 
-        self.nodes.push(Rc::clone(&node));
+        self.nodes.push(Arc::clone(&node));
         node
     }
 
@@ -155,9 +155,9 @@ impl Graph {
                 let left = self.from_expr_ref_with_expr_bank(left_ref, expr_bank, parents.clone());
                 let right = self.from_expr_ref_with_expr_bank(right_ref, expr_bank, parents);
                 if let Some(parent) = get_leftmost_parent_of_leaf(&right) {
-                    let mut parent_node = parent.borrow_mut();
+                    let mut parent_node = parent.lock().unwrap();
                     parent_node.children[0] =
-                        (Rc::clone(&left), parent_node.children[0].1.to_string());
+                        (Arc::clone(&left), parent_node.children[0].1.to_string());
                 }
                 right
             }
