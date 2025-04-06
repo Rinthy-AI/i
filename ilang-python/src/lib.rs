@@ -113,6 +113,14 @@ impl Component {
         let block = Lowerer::new().lower(&self.graph);
         run_rust_impl(&block, &data)
     }
+    #[pyo3(name = "__call__")]
+    fn call(&self, other: &Component) -> PyResult<Component> {
+        let composed_graph = self.graph.compose(&other.graph);
+        Ok(Component {
+            _src: "".to_string(),
+            graph: composed_graph,
+        })
+    }
 }
 
 fn run_rust_impl(schedule: &Block, data: &[&Tensor]) -> PyResult<()> {
