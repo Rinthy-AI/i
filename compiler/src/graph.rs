@@ -80,6 +80,24 @@ impl Graph {
         graph
     }
 
+    /// Return the `Graph` formed by chaining `self` into `other`, i.e., `f.chain(g) = g(f)`
+    /// Equivalent to the commutation of `compose`: `f.chain(g) = g.compose(f)`
+    pub fn chain(&self, other: &Self) -> Self {
+        let right = other.clone();
+        let left = self.clone();
+        if let Some(parent) = get_leftmost_parent_of_leaf(&right.root()) {
+            let mut parent_node = parent.lock().unwrap();
+            parent_node.children[0] = (left.root().clone(), parent_node.children[0].1.to_string());
+        }
+        right
+    }
+
+    /// Return the `Graph` formed by composing `self` with `other`, i.e., `f.compose(g) = f(g)`
+    /// Equivalent to the commutation of `chain`: `f.compose(g) = g.chain(f)`
+    pub fn compose(&self, other: &Self) -> Self {
+        other.chain(self)
+    }
+
     fn add_node(
         &mut self,
         index: String,

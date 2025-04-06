@@ -10,8 +10,8 @@ use backend::cuda::CudaBackend;
 
 use crate::backend::block::BlockBackend;
 use crate::backend::rust::RustBackend;
-use crate::graph::Graph;
 use crate::backend::Render;
+use crate::graph::Graph;
 use crate::lowerer::Lowerer;
 use crate::parser::Parser;
 
