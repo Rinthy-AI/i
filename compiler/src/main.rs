@@ -99,7 +99,7 @@ fn main() -> Result<(), String> {
     };
 
     let formatted_code = match target {
-        "rust" => format_rust_code(format!("fn main() {{ {};}}", RustBackend::render(&block))),
+        "rust" => format_rust_code(RustBackend::render(&block)),
         "ir" => BlockBackend::render(&block),
         "cuda" => CudaBackend::render(&block),
         &_ => unreachable!(),
