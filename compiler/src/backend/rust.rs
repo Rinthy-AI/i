@@ -52,8 +52,9 @@ impl RustBackend {
     fn render_type(type_: &Type) -> String {
         match type_ {
             Type::Int(_) => "usize".to_string(),
-            Type::Array(_) => "&[f32]".to_string(),
-            Type::ArrayRef(mutable) => format!("&{}[f32]", if *mutable { "mut " } else { "" }),
+            Type::Array(mutable) | Type::ArrayRef(mutable) => {
+                format!("&{}[f32]", if *mutable { "mut " } else { "" })
+            }
         }
     }
     fn render_expr(expr: &Expr) -> String {
@@ -63,7 +64,7 @@ impl RustBackend {
                 shape,
             } => {
                 format!(
-                    "vec![{}; {}]",
+                    "&mut vec![{}; {}][..]",
                     format!("{:.1}", initial_value), // using `.to_string()` won't produce decimal
                     format!("{}", shape.join(" * ")),
                 )
