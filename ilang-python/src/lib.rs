@@ -113,13 +113,23 @@ impl Component {
         let block = Lowerer::new().lower(&self.graph);
         run_rust_impl(&block, &data)
     }
+    #[pyo3(name = "chain")]
+    fn chain(&self, other: &Component) -> PyResult<Component> {
+        Ok(Component {
+            _src: format!("i({}).chain(i({}))", self._src, other._src),
+            graph: self.graph.chain(&other.graph),
+        })
+    }
+    #[pyo3(name = "compose")]
+    fn compose(&self, other: &Component) -> PyResult<Component> {
+        Ok(Component {
+            _src: format!("i({})(i({}))", self._src, other._src),
+            graph: self.graph.compose(&other.graph),
+        })
+    }
     #[pyo3(name = "__call__")]
     fn call(&self, other: &Component) -> PyResult<Component> {
-        let composed_graph = self.graph.compose(&other.graph);
-        Ok(Component {
-            _src: "".to_string(),
-            graph: composed_graph,
-        })
+        self.compose(other)
     }
 }
 
