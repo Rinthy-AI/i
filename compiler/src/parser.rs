@@ -264,6 +264,7 @@ impl<'a> Parser<'a> {
         match self.tokenizer.next() {
             Token::Operator('*') => Ok(BinaryOp::Mul(left, self.parse_symbol()?)),
             Token::Operator('+') => Ok(BinaryOp::Add(left, self.parse_symbol()?)),
+            Token::Operator('>') => Ok(BinaryOp::Max(left, self.parse_symbol()?)),
             _ => Err(ParseError::InvalidToken {
                 expected: "Operator".to_string(),
             }),
@@ -274,6 +275,7 @@ impl<'a> Parser<'a> {
         match self.tokenizer.next() {
             Token::Operator('*') => Ok(UnaryOp::Prod(self.parse_symbol()?)),
             Token::Operator('+') => Ok(UnaryOp::Accum(self.parse_symbol()?)),
+            Token::Operator('>') => Ok(UnaryOp::Relu(self.parse_symbol()?)),
             _ => Err(ParseError::InvalidToken {
                 expected: "Operator".to_string(),
             }),

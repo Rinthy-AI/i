@@ -52,12 +52,14 @@ pub enum ScalarOp {
 pub enum BinaryOp {
     Mul(Symbol, Symbol),
     Add(Symbol, Symbol),
+    Max(Symbol, Symbol),
 }
 
 #[derive(Clone, Debug)]
 pub enum UnaryOp {
     Prod(Symbol),
     Accum(Symbol),
+    Relu(Symbol),
 }
 
 #[derive(Clone, Debug)]

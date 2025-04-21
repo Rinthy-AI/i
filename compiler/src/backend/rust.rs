@@ -57,6 +57,36 @@ impl RustBackend {
             }
         }
     }
+    fn render_op(expr: &Expr) -> String {
+        let Expr::Op { op, inputs } = expr else {
+            panic!("Expected `Op` variant of `Expr`")
+        };
+        match op {
+            '>' => match inputs.len() {
+                1 => format!(
+                    "if {} > 0. {{ {} }} else {{ 0. }}",
+                    Self::render_expr(&inputs[0]),
+                    Self::render_expr(&inputs[0]),
+                ),
+                2 => format!(
+                    "if {} > {} {{ {} }} else {{ {} }}",
+                    Self::render_expr(&inputs[0]),
+                    Self::render_expr(&inputs[1]),
+                    Self::render_expr(&inputs[0]),
+                    Self::render_expr(&inputs[1]),
+                ),
+                _ => panic!("Expected 1 or 2 inputs to op `>`."),
+            },
+            _ => format!(
+                "({})",
+                inputs
+                    .iter()
+                    .map(|input| Self::render_expr(&input))
+                    .collect::<Vec<_>>()
+                    .join(&format!(" {op} "))
+            ),
+        }
+    }
     fn render_expr(expr: &Expr) -> String {
         match expr {
             Expr::Alloc {
@@ -72,14 +102,7 @@ impl RustBackend {
             Expr::Ident(s) => s.to_string(),
             Expr::Ref(s, _mutable) => format!("{s}"),
             Expr::Int(x) => format!("{x}"),
-            Expr::Op { op, inputs } => format!(
-                "({})",
-                inputs
-                    .iter()
-                    .map(|input| Self::render_expr(&input))
-                    .collect::<Vec<_>>()
-                    .join(&format!(" {op} "))
-            ),
+            Expr::Op { .. } => Self::render_op(&expr),
             Expr::Indexed { ident, index } => format!("{ident}[{}]", Self::render_expr(&index),),
         }
     }

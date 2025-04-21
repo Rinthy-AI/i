@@ -536,16 +536,16 @@ impl Lowerer {
             })
             .collect();
 
-        if in_exprs.len() == 1 {
+        if in_exprs.len() == 1 && matches!(op, '+' | '*') {
             // Pushing to front here shouldn't be a problem unless we start allowing ops of
             // arbitrary inputs.
             in_exprs.insert(0, out_expr.clone());
+            assert_eq!(
+                in_exprs.len(),
+                2,
+                "Expected exactly two operands for op [{op}]."
+            );
         }
-        assert_eq!(
-            in_exprs.len(),
-            2,
-            "Expected exactly two operands for op [{op}]."
-        );
 
         Statement::Assignment {
             left: out_expr,
