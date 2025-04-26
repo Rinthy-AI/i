@@ -75,8 +75,24 @@ impl RustBackend {
                     Self::render_expr(&inputs[0]),
                     Self::render_expr(&inputs[1]),
                 ),
-                _ => panic!("Expected 1 or 2 inputs to op `>`."),
+                _ => panic!("Expected 1 or 2 inputs to op [>]."),
             },
+            '-' => {
+                assert!(inputs.len() == 1, "Expected 1 input to op [-].");
+                format!("-({})", Self::render_expr(&inputs[0]))
+            }
+            '/' => {
+                assert!(inputs.len() == 1, "Expected 1 input to op [/].");
+                format!("1. / {}", Self::render_expr(&inputs[0]))
+            }
+            '^' => {
+                assert!(inputs.len() == 1, "Expected 1 input to op [^].");
+                format!("({} as f64).exp() as f32 ", Self::render_expr(&inputs[0]))
+            }
+            '$' => {
+                assert!(inputs.len() == 1, "Expected 1 input to op [$].");
+                format!("({} as f64).ln() as f32", Self::render_expr(&inputs[0]))
+            }
             _ => format!(
                 "({})",
                 inputs

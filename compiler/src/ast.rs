@@ -60,6 +60,10 @@ pub enum UnaryOp {
     Prod(Symbol),
     Accum(Symbol),
     Relu(Symbol),
+    Neg(Symbol),
+    Exp(Symbol),
+    Log(Symbol),
+    Recip(Symbol),
 }
 
 #[derive(Clone, Debug)]
