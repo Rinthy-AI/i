@@ -127,6 +127,10 @@ impl Component {
             graph: self.graph.compose(&other.graph),
         })
     }
+    #[pyo3(name = "__or__")]
+    fn or(&self, other: &Component) -> PyResult<Component> {
+        self.chain(other)
+    }
     #[pyo3(name = "__call__")]
     fn call(&self, other: &Component) -> PyResult<Component> {
         self.compose(other)
