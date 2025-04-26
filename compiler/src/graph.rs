@@ -151,6 +151,10 @@ impl Graph {
                     ScalarOp::UnaryOp(UnaryOp::Accum(in0))
                     | ScalarOp::UnaryOp(UnaryOp::Prod(in0))
                     | ScalarOp::UnaryOp(UnaryOp::Relu(in0))
+                    | ScalarOp::UnaryOp(UnaryOp::Neg(in0))
+                    | ScalarOp::UnaryOp(UnaryOp::Recip(in0))
+                    | ScalarOp::UnaryOp(UnaryOp::Exp(in0))
+                    | ScalarOp::UnaryOp(UnaryOp::Log(in0))
                     | ScalarOp::NoOp(NoOp(in0)) => {
                         vec![(
                             self.add_node(in0.0.clone(), NodeBody::Leaf, vec![], vec![]),
@@ -165,6 +169,10 @@ impl Graph {
                     | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
                     ScalarOp::UnaryOp(UnaryOp::Relu(_))
                     | ScalarOp::BinaryOp(BinaryOp::Max(_, _)) => '>',
+                    ScalarOp::UnaryOp(UnaryOp::Neg(_)) => '-',
+                    ScalarOp::UnaryOp(UnaryOp::Recip(_)) => '/',
+                    ScalarOp::UnaryOp(UnaryOp::Exp(_)) => '^',
+                    ScalarOp::UnaryOp(UnaryOp::Log(_)) => '$',
                     ScalarOp::NoOp(_) => ' ', // never used
                 };
                 let body = NodeBody::Interior {
