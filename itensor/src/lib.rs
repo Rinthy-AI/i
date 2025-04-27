@@ -1,6 +1,35 @@
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
+use compiler::{
+    backend::{rust::RustBackend, Build, Render},
+    graph::Graph,
+    lowerer::Lowerer,
+    parser::Parser,
+};
+
+#[pyclass]
+struct Component {
+    graph: Graph,
+}
+
+#[pymethods]
+impl Component {
+    #[new]
+    fn new(src: String) -> PyResult<Self> {
+        let (_ast, expr_bank) = Parser::new(&src).unwrap().parse().unwrap();
+        let graph = Graph::from_expr_bank(&expr_bank);
+        Ok(Component { graph })
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!(
+            "{:#?}",
+            RustBackend::render(&Lowerer::new().lower(&self.graph))
+        ))
+    }
+}
+
 #[pyclass]
 struct Tensor {
     data: Vec<f32>,
@@ -96,5 +125,6 @@ impl Tensor {
 #[pymodule]
 fn itensor(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Tensor>()?;
+    m.add_class::<Component>()?;
     Ok(())
 }
