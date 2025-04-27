@@ -1,2 +1,2 @@
 [workspace]
-members = ["compiler", "ilang-python"]
+members = ["compiler", "ilang-python", "itensor"]
