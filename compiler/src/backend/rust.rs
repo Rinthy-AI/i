@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::backend::{Backend, Build, Render};
-use crate::block::{Arg, Block, Expr, Statement, Type};
+use crate::block::{Arg, Block, Expr, Program, Statement, Type};
 
 pub struct RustBackend;
 
@@ -38,13 +38,17 @@ impl Build for RustBackend {
 }
 
 impl Render for RustBackend {
-    fn render(block: &Block) -> String {
-        block
-            .statements
-            .iter()
-            .map(|statement| Self::render_statement(&statement))
-            .collect::<Vec<_>>()
-            .join("\n")
+    fn render(program: &Program) -> String {
+        format!(
+            "{}\n{}",
+            program
+                .library
+                .iter()
+                .map(|statement| Self::render_statement(&statement))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Self::render_statement(&program.exec)
+        )
     }
 }
 
