@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::backend::{Backend, Build, Render};
-use crate::block::{Arg, Block, Expr, Statement, Type};
+use crate::block::{Arg, Block, Expr, Program, Statement, Type};
 
 pub struct RustBackend;
 
@@ -38,7 +38,37 @@ impl Build for RustBackend {
 }
 
 impl Render for RustBackend {
-    fn render(block: &Block) -> String {
+    fn render(program: &Program) -> String {
+        format!(
+            r#"
+#[repr(C)]
+pub struct Tensor<'a> {{
+    pub data: *const f32,
+    pub shape: *const usize,
+    pub ndim: usize,
+    pub _marker: std::marker::PhantomData<&'a [f32]>,
+}}
+
+#[repr(C)]
+pub struct TensorMut<'a> {{
+    pub data: *mut f32,
+    pub shape: *const usize,
+    pub ndim: usize,
+    pub _marker: std::marker::PhantomData<&'a mut [f32]>,
+}}
+
+{}
+
+{}
+"#,
+            Self::render_block(&program.library),
+            Self::render_exec(&program.exec)
+        )
+    }
+}
+
+impl RustBackend {
+    fn render_block(block: &Block) -> String {
         block
             .statements
             .iter()
@@ -46,9 +76,6 @@ impl Render for RustBackend {
             .collect::<Vec<_>>()
             .join("\n")
     }
-}
-
-impl RustBackend {
     fn render_type(type_: &Type) -> String {
         match type_ {
             Type::Int(_) => "usize".to_string(),
@@ -125,6 +152,26 @@ impl RustBackend {
         }
     }
 
+    fn render_exec(statement: &Statement) -> String {
+        if let Statement::Function { ident, args, body } = &statement {
+            format!(
+                r#"
+#[no_mangle]
+pub unsafe extern "C"
+fn f(inputs: *const Tensor, n_inputs: usize, output: *mut TensorMut) {{
+    let inputs = std::slice::from_raw_parts(inputs, n_inputs);
+    let output = &mut *output;
+
+    {}
+}}
+"#,
+                Self::render_block(&body),
+            )
+        } else {
+            panic!("Found non-`Function` `Statement` for executive function.")
+        }
+    }
+
     fn render_statement(statement: &Statement) -> String {
         match statement {
             Statement::Assignment { left, right } => format!(
@@ -152,10 +199,9 @@ impl RustBackend {
                 format!(
                     "for {index} in 0..{} {{ {} }}",
                     Self::render_expr(&bound),
-                    Self::render(body)
+                    Self::render_block(body)
                 )
             }
-
             Statement::Function { ident, args, body } => format!(
                 "#[no_mangle]\nfn {ident}({}) {{{}}}",
                 args.iter()
@@ -165,7 +211,7 @@ impl RustBackend {
                     })
                     .collect::<Vec<_>>()
                     .join(", "),
-                Self::render(&body),
+                Self::render_block(&body),
             ),
             Statement::Return { value } => Self::render_expr(&value),
             Statement::Call { ident, args } => format!(

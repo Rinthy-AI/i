@@ -73,3 +73,9 @@ pub enum Statement {
 pub struct Block {
     pub statements: Vec<Statement>,
 }
+
+#[derive(Clone, Debug)]
+pub struct Program {
+    pub library: Block,  // Should consistent only of `Statement::Function`s
+    pub exec: Statement, // This `Statement` should also be of variant `Function`
+}

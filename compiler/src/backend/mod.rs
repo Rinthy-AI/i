@@ -1,13 +1,13 @@
 use std::{io::Error, path::PathBuf};
 
-use crate::block::Block;
+use crate::block::Program;
 
 pub mod block;
 pub mod cuda;
 pub mod rust;
 
 pub trait Render {
-    fn render(block: &Block) -> String;
+    fn render(program: &Program) -> String;
 }
 
 #[allow(dead_code)]

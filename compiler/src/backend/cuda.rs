@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     backend::Render,
-    block::{Arg, Block, Expr, Statement, Type},
+    block::{Arg, Block, Expr, Program, Statement, Type},
 };
 
 pub struct CudaBackend;
@@ -193,17 +193,12 @@ impl Kernel {
 }
 
 impl Render for CudaBackend {
-    fn render(block: &Block) -> String {
+    fn render(program: &Program) -> String {
         let mut output = "#include <cuda.h>\n#include <stdio.h>\n\n".to_string();
-
-        if block.statements.is_empty() {
-            panic!("Statement list is empty");
-        }
-        let num_statements = block.statements.len();
 
         let mut kernels = Vec::new();
 
-        for statement in block.statements.iter().take(num_statements - 1) {
+        for statement in program.library.statements.iter() {
             if let Statement::Function { ident, args, body } = statement {
                 // Assume that this Function will benefit from parallel computation; might not
                 // always be true or optimal
@@ -224,7 +219,7 @@ impl Render for CudaBackend {
             }
         }
 
-        let last_statement = &block.statements[num_statements - 1];
+        let last_statement = &program.exec;
         if let Statement::Function { ident, args, body } = last_statement {
             let params = args
                 .iter()

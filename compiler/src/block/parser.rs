@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-use crate::block::{Arg, Block, Expr, Statement, Type};
+use crate::block::{Arg, Block, Expr, Program, Statement, Type};
 
 #[derive(Debug)]
 enum Sexp {
@@ -8,11 +8,19 @@ enum Sexp {
     List(Vec<Sexp>),
 }
 
-pub fn parse(input: &str) -> Block {
+pub fn parse(input: &str) -> Program {
     let tokens = tokenize(input).collect::<Vec<_>>();
     let mut iter = tokens.into_iter().peekable();
     let sexp = parse_sexp(&mut iter);
-    parse_block_sexp(&sexp)
+    let mut block = parse_block_sexp(&sexp);
+    // TODO This could check the `Statement`s are of variant `Function`...
+    let exec = block.statements.pop().unwrap();
+    Program {
+        library: Block {
+            statements: block.statements,
+        },
+        exec,
+    }
 }
 
 fn parse_block_sexp(sexp: &Sexp) -> Block {

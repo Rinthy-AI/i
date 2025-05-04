@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::Schedule;
-use crate::block::{Arg, Block, Expr, Statement, Type};
+use crate::block::{Arg, Block, Expr, Program, Statement, Type};
 use crate::graph::{Graph, Node, NodeBody};
 
 pub struct Lowerer {
@@ -38,24 +38,21 @@ impl Lowerer {
         index.chars().filter(|c| seen.insert(*c)).collect()
     }
 
-    pub fn lower(&mut self, graph: &Graph) -> Block {
+    pub fn lower(&mut self, graph: &Graph) -> Program {
         let lowered = self.lower_node(&*graph.root().lock().unwrap(), HashSet::new(), true);
-        Block {
-            statements: [
-                lowered.def_block.statements,
-                vec![Statement::Function {
-                    ident: "f".to_string(),
-                    args: self.input_args.clone(),
-                    body: Block {
-                        statements: [
-                            lowered.alloc_block.statements,
-                            lowered.exec_block.statements,
-                        ]
-                        .concat(),
-                    },
-                }],
-            ]
-            .concat(),
+        Program {
+            library: lowered.def_block,
+            exec: Statement::Function {
+                ident: "f".to_string(),
+                args: self.input_args.clone(),
+                body: Block {
+                    statements: [
+                        lowered.alloc_block.statements,
+                        lowered.exec_block.statements,
+                    ]
+                    .concat(),
+                },
+            },
         }
     }
 

@@ -1,11 +1,15 @@
 use crate::backend::Render;
-use crate::block::{Arg, Block, Expr, Statement, Type};
+use crate::block::{Arg, Block, Expr, Program, Statement, Type};
 
 pub struct BlockBackend;
 
 impl Render for BlockBackend {
-    fn render(block: &Block) -> String {
-        Self::render_block(block, 0)
+    fn render(program: &Program) -> String {
+        format!(
+            "{}\n{}",
+            Self::render_block(&program.library, 0),
+            Self::render_statement(&program.exec, 0)
+        )
     }
 }
 
