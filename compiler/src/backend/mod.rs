@@ -2,7 +2,6 @@ use std::{io::Error, path::PathBuf};
 
 use crate::block::Program;
 
-pub mod cuda;
 pub mod rust;
 
 pub trait Render {
