@@ -74,8 +74,8 @@ pub struct Block {
     pub statements: Vec<Statement>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Program {
-    pub library: Vec<Statement>, // All `Statement`s should be of variant `Function`
-    pub exec: Statement,         // This `Statement` should also be of variant `Function`
+    pub library: Block,  // Should consistent only of `Statement::Function`s
+    pub exec: Statement, // This `Statement` should also be of variant `Function`
 }

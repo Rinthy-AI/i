@@ -41,7 +41,7 @@ impl Lowerer {
     pub fn lower(&mut self, graph: &Graph) -> Program {
         let lowered = self.lower_node(&*graph.root().lock().unwrap(), HashSet::new(), true);
         Program {
-            library: lowered.def_block.statements,
+            library: lowered.def_block,
             exec: Statement::Function {
                 ident: "f".to_string(),
                 args: self.input_args.clone(),
