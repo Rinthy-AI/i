@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::io::Error;
 use std::path::PathBuf;
@@ -154,6 +155,64 @@ impl RustBackend {
 
     fn render_exec(statement: &Statement) -> String {
         if let Statement::Function { ident, args, body } = &statement {
+            let mut inputs_arrays = args
+                .iter()
+                .filter(|arg| matches!(arg.type_, Type::ArrayRef(_)))
+                .collect::<Vec<_>>();
+
+            let inputs_dims = args
+                .iter()
+                .filter(|arg| matches!(arg.type_, Type::Int(_)))
+                .collect::<Vec<_>>();
+
+            let _ = inputs_arrays.pop(); // TODO: What if there are no inputs?
+
+            let n_input_arrays = inputs_arrays.len();
+            let input_shape_vecs_string = (0..n_input_arrays)
+                .map(|ind| format!(
+                    "let d{ind} = std::slice::from_raw_parts(inputs[{ind}].shape, inputs[{ind}].ndim);"
+                ))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let input_arrays_string = (0..inputs_arrays.len())
+                .map(|ind| format!(
+                    "let in{ind} = std::slice::from_raw_parts(inputs[{ind}].data, d{ind}.iter().product());"
+                ))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            // map bound idents (i.e., `b0`, `b1`, ...) to `d0[0]`, `d1[0]`, etc.
+            // that is: `d{array_ind}[{bound_ind}]`
+            let mut bound_variable_string = String::new();
+            let mut array_arg_ind = 0;
+            let mut array_dim_ind = 0;
+            let mut dim_map: HashMap<String, String> = HashMap::new();
+            for arg in args {
+                match arg.type_ {
+                    Type::ArrayRef(_) => {
+                        array_arg_ind += 1;
+                        array_dim_ind = 0;
+                    }
+                    Type::Int(_) => {
+                        array_dim_ind += 1;
+                        let shape_vec_string = if array_arg_ind > n_input_arrays {
+                            "out".to_string()
+                        } else {
+                            format!("d{}", array_arg_ind - 1)
+                        };
+                        let Expr::Ident(ref bound_ident) = arg.ident else {
+                            panic!("")
+                        };
+                        bound_variable_string.push_str(&format!(
+                            "let {bound_ident} = {shape_vec_string}[{}];",
+                            array_dim_ind - 1
+                        ))
+                    }
+                    _ => panic!("Unexpected arg type in exec function."),
+                }
+            }
+
             format!(
                 r#"
 #[no_mangle]
@@ -161,6 +220,14 @@ pub unsafe extern "C"
 fn f(inputs: *const Tensor, n_inputs: usize, output: *mut TensorMut) {{
     let inputs = std::slice::from_raw_parts(inputs, n_inputs);
     let output = &mut *output;
+
+    {input_shape_vecs_string}
+    let dout = std::slice::from_raw_parts(output.shape, output.ndim);
+
+    {input_arrays_string}
+    let out = std::slice::from_raw_parts_mut(output.data, dout.iter().product());
+
+    {bound_variable_string}
 
     {}
 }}
