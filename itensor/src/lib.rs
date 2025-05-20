@@ -1,5 +1,6 @@
+use libloading::{Library, Symbol};
 use pyo3::prelude::*;
-use pyo3::types::PyList;
+use pyo3::types::{PyList, PyTuple};
 
 use compiler::{
     backend::{rust::RustBackend, Build, Render},
@@ -8,7 +9,26 @@ use compiler::{
     parser::Parser,
 };
 
+#[derive(Debug)]
+#[repr(C)]
+pub struct Tensor<'a> {
+    pub data: *const f32,
+    pub shape: *const usize,
+    pub ndim: usize,
+    pub _marker: std::marker::PhantomData<&'a [f32]>,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct TensorMut<'a> {
+    pub data: *mut f32,
+    pub shape: *const usize,
+    pub ndim: usize,
+    pub _marker: std::marker::PhantomData<&'a mut [f32]>,
+}
+
 #[pyclass]
+#[derive(Debug)]
 struct Component {
     graph: Graph,
 }
@@ -28,11 +48,50 @@ impl Component {
             RustBackend::render(&Lowerer::new().lower(&self.graph))
         ))
     }
+
+    #[pyo3(signature = (*args))]
+    fn exec(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyTensor> {
+        let mut tensors: Vec<PyTensor> = args.extract()?;
+
+        // convert to backend `Tensor`s
+        let tensors = tensors
+            .iter()
+            .map(|tensor| Tensor {
+                data: tensor.data.as_ptr(),
+                shape: tensor.shape.as_ptr(),
+                ndim: tensor.shape.len(),
+                _marker: std::marker::PhantomData,
+            })
+            .collect::<Vec<_>>();
+
+        let shape = vec![2, 2]; // TODO: figure out how to do this
+        let mut data = vec![0f32; shape.iter().product()];
+        let mut out = TensorMut {
+            data: data.as_mut_ptr(),
+            shape: shape.as_ptr(),
+            ndim: shape.len(),
+            _marker: std::marker::PhantomData,
+        };
+
+        let block = Lowerer::new().lower(&self.graph);
+        let dylib_path = RustBackend::build(&RustBackend::render(&block)).unwrap();
+        unsafe {
+            let dylib = Library::new(dylib_path).unwrap();
+            let f: Symbol<unsafe extern "C" fn(*const Tensor, usize, *mut TensorMut)> =
+                dylib.get(b"f").unwrap();
+            f(tensors.as_ptr(), tensors.len(), &mut out);
+        }
+
+        Ok(PyTensor { data, shape })
+    }
 }
 
-#[pyclass]
-struct Tensor {
+#[pyclass(name = "Tensor")]
+#[derive(Debug, FromPyObject)]
+struct PyTensor {
+    #[pyo3(get)]
     data: Vec<f32>,
+    #[pyo3(get)]
     shape: Vec<usize>,
 }
 
@@ -94,7 +153,7 @@ fn validate_and_flatten(
 }
 
 #[pymethods]
-impl Tensor {
+impl PyTensor {
     #[new]
     fn new(elements: &Bound<'_, PyList>) -> PyResult<Self> {
         let shape = infer_shape(elements)?;
@@ -124,7 +183,7 @@ impl Tensor {
 
 #[pymodule]
 fn itensor(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<Tensor>()?;
+    m.add_class::<PyTensor>()?;
     m.add_class::<Component>()?;
     Ok(())
 }
