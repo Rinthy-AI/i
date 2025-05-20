@@ -54,6 +54,7 @@ name = "itensor"
 version = "0.1.0"
 dependencies = [
  "compiler",
+ "libloading",
  "pyo3",
 ]
 
