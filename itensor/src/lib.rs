@@ -49,6 +49,30 @@ impl Component {
         ))
     }
 
+    #[pyo3(name = "chain")]
+    fn chain(&self, other: &Component) -> PyResult<Component> {
+        Ok(Component {
+            graph: self.graph.chain(&other.graph),
+        })
+    }
+
+    #[pyo3(name = "compose")]
+    fn compose(&self, other: &Component) -> PyResult<Component> {
+        Ok(Component {
+            graph: self.graph.compose(&other.graph),
+        })
+    }
+
+    #[pyo3(name = "__or__")]
+    fn or(&self, other: &Component) -> PyResult<Component> {
+        self.chain(other)
+    }
+
+    #[pyo3(name = "__call__")]
+    fn call(&self, other: &Component) -> PyResult<Component> {
+        self.compose(other)
+    }
+
     #[pyo3(signature = (*args))]
     fn exec(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyTensor> {
         let mut tensors: Vec<PyTensor> = args.extract()?;
