@@ -1,20 +1,26 @@
+import time
+
+import numpy as np
 from itensor import Tensor, Component as i
 
-print(Tensor([1]))
-print(Tensor([1, 2]))
-print(Tensor([[1], [2]]))
-print(Tensor([[1, 2]]))
-print(Tensor([[1, 2], [3, 4]]))
+np.random.seed(0)
 
-#print(i("ik*kj~ijk"))
-out = i("""
-h: ik*kj~ijk
-a: +ijk~ij
-h.a
-""").exec(
-    Tensor([[1, 2], [3, 4]]),
-    Tensor([[1, 2], [3, 4]]),
+n = 2
+a = np.random.rand(n, n)
+b = np.random.rand(n, n)
+
+t = time.time()
+c = a @ b
+print(f"{time.time() - t} seconds")
+print(c)
+
+t = time.time()
+out = (i("ik*kj~ijk") | i("+ijk~ij")).exec(
+    Tensor(a.tolist()),
+    Tensor(b.tolist()),
 )
+print(f"{time.time() - t} seconds")
+print(np.array(out.data).reshape(out.shape))
 
-print(out)
+print('all close? ', np.allclose(np.array(out.data).reshape((n, n)), c, rtol=1e-5, atol=1e-7))
 
