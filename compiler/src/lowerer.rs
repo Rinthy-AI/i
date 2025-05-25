@@ -65,10 +65,15 @@ impl Lowerer {
     ) -> Lowered {
         match &node.body {
             NodeBody::Leaf => self.lower_leaf_node(&node.index),
-            NodeBody::Interior { op, schedule } => self.lower_interior_node(
+            NodeBody::Interior {
+                op,
+                schedule,
+                shape,
+            } => self.lower_interior_node(
                 &node.index,
                 &op,
                 &node.children(),
+                &shape,
                 &schedule,
                 pruned_loops,
                 root,
@@ -122,6 +127,7 @@ impl Lowerer {
         index: &String,
         op: &char,
         children: &Vec<(Node, String)>,
+        shape: &Vec<(usize, usize)>,
         schedule: &Schedule,
         pruned_loops: HashSet<(char, usize)>,
         root: bool,
