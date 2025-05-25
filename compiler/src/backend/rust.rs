@@ -43,19 +43,19 @@ impl Render for RustBackend {
         format!(
             r#"
 #[repr(C)]
-pub struct Tensor<'a> {{
-    pub data: *const f32,
-    pub shape: *const usize,
-    pub ndim: usize,
-    pub _marker: std::marker::PhantomData<&'a [f32]>,
+struct Tensor<'a> {{
+    data: *const f32,
+    shape: *const usize,
+    ndim: usize,
+    _marker: std::marker::PhantomData<&'a [f32]>,
 }}
 
 #[repr(C)]
-pub struct TensorMut<'a> {{
-    pub data: *mut f32,
-    pub shape: *const usize,
-    pub ndim: usize,
-    pub _marker: std::marker::PhantomData<&'a mut [f32]>,
+struct TensorMut<'a> {{
+    data: *mut f32,
+    shape: *const usize,
+    ndim: usize,
+    _marker: std::marker::PhantomData<&'a mut [f32]>,
 }}
 
 {}
@@ -216,7 +216,7 @@ impl RustBackend {
             format!(
                 r#"
 #[no_mangle]
-pub unsafe extern "C"
+unsafe extern "C"
 fn f(inputs: *const Tensor, n_inputs: usize, output: *mut TensorMut) {{
     let inputs = std::slice::from_raw_parts(inputs, n_inputs);
     let output = &mut *output;
