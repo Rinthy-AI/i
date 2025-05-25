@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::{
@@ -9,7 +10,11 @@ type NodeRef = Arc<Mutex<Node>>;
 #[derive(Clone, Debug)]
 pub enum NodeBody {
     Leaf,
-    Interior { op: char, schedule: Schedule },
+    Interior {
+        op: char,
+        schedule: Schedule,
+        shape: Vec<(usize, usize)>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -175,9 +180,11 @@ impl Graph {
                     ScalarOp::UnaryOp(UnaryOp::Log(_)) => '$',
                     ScalarOp::NoOp(_) => ' ', // never used
                 };
+
                 let body = NodeBody::Interior {
                     op,
                     schedule: schedule.clone(),
+                    shape: infer_shape(&out.0, children.iter().map(|child| &child.1).collect()),
                 };
                 self.add_node(out.0.clone(), body, parents, children)
             }
@@ -193,4 +200,22 @@ impl Graph {
             }
         }
     }
+}
+
+fn infer_shape(index: &String, child_indices: Vec<&String>) -> Vec<(usize, usize)> {
+    // maps char indices to their (input index, char index) pairs
+    let index_map: HashMap<char, (usize, usize)> = child_indices
+        .iter()
+        .enumerate()
+        .rev()
+        .flat_map(|(child_ind, child_index)| {
+            child_index
+                .chars()
+                .rev()
+                .enumerate()
+                .map(move |(char_ind, c)| (c, (child_ind, child_index.len() - 1 - char_ind)))
+        })
+        .collect();
+
+    index.chars().map(|c| index_map[&c]).collect()
 }
