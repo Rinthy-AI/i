@@ -14,11 +14,15 @@ pub fn parse(input: &str) -> Program {
     let sexp = parse_sexp(&mut iter);
     let mut block = parse_block_sexp(&sexp);
     // TODO This could check the `Statement`s are of variant `Function`...
+    let rank = block.statements.remove(0);
+    let shape = block.statements.remove(0);
     let exec = block.statements.pop().unwrap();
     Program {
         library: Block {
             statements: block.statements,
         },
+        rank,
+        shape,
         exec,
     }
 }

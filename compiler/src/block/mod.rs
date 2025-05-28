@@ -76,6 +76,8 @@ pub struct Block {
 
 #[derive(Clone, Debug)]
 pub struct Program {
-    pub library: Block,  // Should consistent only of `Statement::Function`s
-    pub exec: Statement, // This `Statement` should also be of variant `Function`
+    pub rank: Statement,  // Should be `Statement::Function`
+    pub shape: Statement, // Should be `Statement::Function`
+    pub library: Block,   // Should consistent only of `Statement::Function`s
+    pub exec: Statement,  // Should be `Statement::Function`
 }

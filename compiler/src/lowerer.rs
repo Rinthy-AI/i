@@ -20,6 +20,7 @@ struct Lowered {
     def_args: Vec<Arg>, // only populated for kernel fragemnts, empty for full kernels
     loop_idents: HashMap<char, (String, String)>,
     store_ident: String,
+    shape: Vec<(usize, usize)>,
 }
 
 impl Lowerer {
@@ -41,6 +42,36 @@ impl Lowerer {
     pub fn lower(&mut self, graph: &Graph) -> Program {
         let lowered = self.lower_node(&*graph.root().lock().unwrap(), HashSet::new(), true);
         Program {
+            rank: Statement::Function {
+                ident: "rank".to_string(),
+                args: vec![],
+                body: Block {
+                    statements: vec![Statement::Return {
+                        value: Expr::Int(lowered.shape.len()),
+                    }],
+                },
+            },
+            shape: Statement::Function {
+                ident: "shape".to_string(),
+                args: self.input_args.clone(),
+                body: Block {
+                    statements: lowered
+                        .shape
+                        .iter()
+                        .enumerate()
+                        .map(|(ind, (input_ind, dim))| Statement::Assignment {
+                            left: Expr::Indexed {
+                                ident: format!("shape"),
+                                index: Box::new(Expr::Int(ind)),
+                            },
+                            right: Expr::Indexed {
+                                ident: format!("d{input_ind}"),
+                                index: Box::new(Expr::Int(*dim)),
+                            },
+                        })
+                        .collect(),
+                },
+            },
             library: lowered.def_block,
             exec: Statement::Function {
                 ident: "f".to_string(),
@@ -73,7 +104,7 @@ impl Lowerer {
                 &node.index,
                 &op,
                 &node.children(),
-                &shape,
+                shape,
                 &schedule,
                 pruned_loops,
                 root,
@@ -118,6 +149,11 @@ impl Lowerer {
             def_args: Vec::new(),
             loop_idents: loop_idents,
             store_ident: arg_ident,
+            shape: index
+                .chars()
+                .enumerate()
+                .map(|(ind, c)| (self.input_array_counter - 1, ind))
+                .collect(),
         }
     }
 
@@ -169,6 +205,7 @@ impl Lowerer {
             mut child_def_args,
             loop_idents,
             child_store_idents,
+            child_shapes,
         ): (
             Vec<Block>,
             Vec<Block>,
@@ -176,8 +213,17 @@ impl Lowerer {
             Vec<Arg>,
             HashMap<char, (String, String)>,
             Vec<String>,
+            Vec<Vec<(usize, usize)>>,
         ) = children.iter().enumerate().fold(
-            (vec![], vec![], vec![], vec![], HashMap::new(), vec![]),
+            (
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                HashMap::new(),
+                vec![],
+                vec![],
+            ),
             |(
                 mut def_blocks,
                 mut alloc_blocks,
@@ -185,6 +231,7 @@ impl Lowerer {
                 mut def_args,
                 mut loop_idents,
                 mut child_store_idents,
+                mut child_shapes,
             ),
              (ind, (child, index))| {
                 // for mapping between child indexing and current node indexing
@@ -206,6 +253,7 @@ impl Lowerer {
                     def_args: child_def_args,
                     loop_idents: child_loop_idents,
                     store_ident: child_store_ident,
+                    shape: child_shape,
                 } = self.lower_node(&child, pruned_loops, false);
 
                 let child_loop_idents: HashMap<char, (String, String)> = child_loop_idents
@@ -220,6 +268,7 @@ impl Lowerer {
                 Self::merge_args(&mut def_args, child_def_args);
                 loop_idents.extend(child_loop_idents);
                 child_store_idents.push(child_store_ident);
+                child_shapes.push(child_shape);
 
                 (
                     def_blocks,
@@ -228,9 +277,15 @@ impl Lowerer {
                     def_args,
                     loop_idents,
                     child_store_idents,
+                    child_shapes,
                 )
             },
         );
+
+        let shape = shape
+            .iter()
+            .map(|(child_ind, dim)| child_shapes[*child_ind][*dim])
+            .collect::<Vec<_>>();
 
         let store_ident = match root {
             true => "out".to_string(),
@@ -499,6 +554,7 @@ impl Lowerer {
             def_args,
             loop_idents,
             store_ident,
+            shape,
         }
     }
 

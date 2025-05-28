@@ -61,7 +61,13 @@ struct TensorMut<'a> {{
 {}
 
 {}
+
+{}
+
+{}
 "#,
+            Self::render_rank(&program.rank),
+            Self::render_shape(&program.shape),
             Self::render_block(&program.library),
             Self::render_exec(&program.exec)
         )
@@ -153,6 +159,68 @@ impl RustBackend {
         }
     }
 
+    fn render_rank(statement: &Statement) -> String {
+        if let Statement::Function { body, .. } = &statement {
+            format!(
+                r#"
+#[no_mangle]
+extern "C"
+fn rank() -> usize {{
+    {function_body}
+}}
+"#,
+                function_body = Self::render_block(&body),
+            )
+        } else {
+            panic!("Found non-`Function` `Statement` for executive function.")
+        }
+    }
+
+    fn render_shape(statement: &Statement) -> String {
+        if let Statement::Function { ident, args, body } = &statement {
+            let mut inputs_arrays = args
+                .iter()
+                .filter(|arg| matches!(arg.type_, Type::ArrayRef(_)))
+                .collect::<Vec<_>>();
+
+            let inputs_dims = args
+                .iter()
+                .filter(|arg| matches!(arg.type_, Type::Int(_)))
+                .collect::<Vec<_>>();
+
+            let _ = inputs_arrays.pop(); // TODO: What if there are no inputs?
+
+            let n_input_arrays = inputs_arrays.len();
+            let input_shape_vecs_string = (0..n_input_arrays)
+                .map(|ind| format!(
+                    "let d{ind} = std::slice::from_raw_parts(inputs[{ind}].shape, inputs[{ind}].ndim);"
+                ))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let output_shape_vec_string =
+                "let shape = std::slice::from_raw_parts_mut(shape, rank);";
+
+            format!(
+                r#"
+#[no_mangle]
+unsafe extern "C"
+fn shape(inputs: *const Tensor, n_inputs: usize, rank: usize, shape: *mut usize) {{
+    let inputs = std::slice::from_raw_parts(inputs, n_inputs);
+
+    {input_shape_vecs_string}
+    {output_shape_vec_string}
+
+    {function_body}
+}}
+"#,
+                function_body = Self::render_block(&body),
+            )
+        } else {
+            panic!("Found non-`Function` `Statement` for executive function.")
+        }
+    }
+
     fn render_exec(statement: &Statement) -> String {
         if let Statement::Function { ident, args, body } = &statement {
             let mut inputs_arrays = args
@@ -213,6 +281,12 @@ impl RustBackend {
                 }
             }
 
+            let output_shape_vec_string =
+                "let dout = std::slice::from_raw_parts(output.shape, output.ndim);";
+
+            let output_array_string =
+                "let out = std::slice::from_raw_parts_mut(output.data, dout.iter().product());";
+
             format!(
                 r#"
 #[no_mangle]
@@ -222,17 +296,17 @@ fn f(inputs: *const Tensor, n_inputs: usize, output: *mut TensorMut) {{
     let output = &mut *output;
 
     {input_shape_vecs_string}
-    let dout = std::slice::from_raw_parts(output.shape, output.ndim);
+    {output_shape_vec_string}
 
     {input_arrays_string}
-    let out = std::slice::from_raw_parts_mut(output.data, dout.iter().product());
+    {output_array_string}
 
     {bound_variable_string}
 
-    {}
+    {function_body}
 }}
 "#,
-                Self::render_block(&body),
+                function_body = Self::render_block(&body),
             )
         } else {
             panic!("Found non-`Function` `Statement` for executive function.")
