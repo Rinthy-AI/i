@@ -88,25 +88,33 @@ impl Component {
             })
             .collect::<Vec<_>>();
 
-        let shape = vec![2, 2]; // TODO: figure out how to do this
-        let mut data = vec![0f32; shape.iter().product()];
-        let mut out = TensorMut {
-            data: data.as_mut_ptr(),
-            shape: shape.as_ptr(),
-            ndim: shape.len(),
-            _marker: std::marker::PhantomData,
-        };
-
-        let block = Lowerer::new().lower(&self.graph);
-        let dylib_path = RustBackend::build(&RustBackend::render(&block)).unwrap();
         unsafe {
+            let block = Lowerer::new().lower(&self.graph);
+            let dylib_path = RustBackend::build(&RustBackend::render(&block)).unwrap();
+
             let dylib = Library::new(dylib_path).unwrap();
+            let rank: Symbol<extern "C" fn() -> usize> = dylib.get(b"rank").unwrap();
+            let fshape: Symbol<extern "C" fn(*const Tensor, usize, usize, *mut usize)> =
+                dylib.get(b"shape").unwrap();
             let f: Symbol<unsafe extern "C" fn(*const Tensor, usize, *mut TensorMut)> =
                 dylib.get(b"f").unwrap();
-            f(tensors.as_ptr(), tensors.len(), &mut out);
-        }
 
-        Ok(PyTensor { data, shape })
+            let mut shape = Vec::with_capacity(rank());
+            fshape(tensors.as_ptr(), tensors.len(), rank(), shape.as_mut_ptr());
+            shape.set_len(rank());
+
+            let mut data = vec![0f32; shape.iter().product()];
+            let mut out = TensorMut {
+                data: data.as_mut_ptr(),
+                shape: shape.as_ptr(),
+                ndim: shape.len(),
+                _marker: std::marker::PhantomData,
+            };
+
+            f(tensors.as_ptr(), tensors.len(), &mut out);
+
+            Ok(PyTensor { data, shape })
+        }
     }
 }
 
