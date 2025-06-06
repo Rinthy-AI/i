@@ -7,6 +7,18 @@ use std::process::Command;
 use crate::backend::{Backend, Build, Render};
 use crate::block::{Arg, Block, Expr, Program, Statement, Type};
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn unique_string() -> String {
+    format!(
+        "{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    )
+}
+
 pub struct RustBackend;
 
 impl Backend for RustBackend {}
@@ -15,14 +27,16 @@ impl Build for RustBackend {
     fn build(source: &str) -> Result<PathBuf, Error> {
         let path_base = "/tmp/ilang";
         let source_path = format!("{path_base}.rs");
-        let dylib_path = format!("{path_base}.so");
+        let dylib_path = format!("{path_base}_{}.so", unique_string());
         fs::write(&source_path, source)?;
         let build = Command::new("rustc")
             .args([
                 "--crate-type=dylib",
+                "-C",
+                "opt-level=3",
+                &source_path,
                 "-o",
                 &dylib_path,
-                &source_path,
                 "-A",
                 "warnings",
             ])
