@@ -88,20 +88,20 @@ impl Component {
             })
             .collect::<Vec<_>>();
 
-        unsafe {
-            let block = Lowerer::new().lower(&self.graph);
-            let dylib_path = RustBackend::build(&RustBackend::render(&block)).unwrap();
+        let block = Lowerer::new().lower(&self.graph);
+        let dylib_path = RustBackend::build(&RustBackend::render(&block)).unwrap();
 
-            let dylib = Library::new(dylib_path).unwrap();
+        unsafe {
+            let dylib = Library::new(&dylib_path).unwrap();
             let rank: Symbol<extern "C" fn() -> usize> = dylib.get(b"rank").unwrap();
+
             let fshape: Symbol<extern "C" fn(*const Tensor, usize, usize, *mut usize)> =
                 dylib.get(b"shape").unwrap();
             let f: Symbol<unsafe extern "C" fn(*const Tensor, usize, *mut TensorMut)> =
                 dylib.get(b"f").unwrap();
 
-            let mut shape = Vec::with_capacity(rank());
+            let mut shape = vec![0; rank()];
             fshape(tensors.as_ptr(), tensors.len(), rank(), shape.as_mut_ptr());
-            shape.set_len(rank());
 
             let mut data = vec![0f32; shape.iter().product()];
             let mut out = TensorMut {
