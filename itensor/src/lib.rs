@@ -113,6 +113,8 @@ impl Component {
 
             f(tensors.as_ptr(), tensors.len(), &mut out);
 
+            std::fs::remove_file(dylib_path).unwrap();
+
             Ok(PyTensor { data, shape })
         }
     }
