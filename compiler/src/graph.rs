@@ -34,7 +34,7 @@ impl Node {
     }
 }
 
-fn get_leftmost_parent_of_leaf(node: &NodeRef) -> Option<NodeRef> {
+fn get_parent_of_leftmost_leaf(node: &NodeRef) -> Option<NodeRef> {
     let mut current = Arc::clone(node);
     let mut parent = None;
 
@@ -90,7 +90,7 @@ impl Graph {
     pub fn chain(&self, other: &Self) -> Self {
         let right = other.clone();
         let left = self.clone();
-        if let Some(parent) = get_leftmost_parent_of_leaf(&right.root()) {
+        if let Some(parent) = get_parent_of_leftmost_leaf(&right.root()) {
             let mut parent_node = parent.lock().unwrap();
             parent_node.children[0] = (left.root().clone(), parent_node.children[0].1.to_string());
         }
@@ -191,7 +191,7 @@ impl Graph {
             Expr::Combinator(Combinator::Chain(left_ref, right_ref)) => {
                 let left = self.from_expr_ref_with_expr_bank(left_ref, expr_bank, parents.clone());
                 let right = self.from_expr_ref_with_expr_bank(right_ref, expr_bank, parents);
-                if let Some(parent) = get_leftmost_parent_of_leaf(&right) {
+                if let Some(parent) = get_parent_of_leftmost_leaf(&right) {
                     let mut parent_node = parent.lock().unwrap();
                     parent_node.children[0] =
                         (Arc::clone(&left), parent_node.children[0].1.to_string());
