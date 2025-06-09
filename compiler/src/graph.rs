@@ -75,6 +75,16 @@ impl Graph {
         Self { nodes: Vec::new() }
     }
 
+    pub fn deepcopy(&self) -> Self {
+        Self {
+            nodes: self
+                .nodes
+                .iter()
+                .map(|node| deepcopy_noderef(node))
+                .collect(),
+        }
+    }
+
     pub fn root(&self) -> NodeRef {
         Arc::clone(self.nodes.last().expect("Graph is empty"))
     }
@@ -88,8 +98,8 @@ impl Graph {
     /// Return the `Graph` formed by chaining `self` into `other`, i.e., `f.chain(g) = g(f)`
     /// Equivalent to the commutation of `compose`: `f.chain(g) = g.compose(f)`
     pub fn chain(&self, other: &Self) -> Self {
-        let right = other.clone();
-        let left = self.clone();
+        let right = other.deepcopy();
+        let left = self.deepcopy();
         if let Some(parent) = get_parent_of_leftmost_leaf(&right.root()) {
             let mut parent_node = parent.lock().unwrap();
             parent_node.children[0] = (left.root().clone(), parent_node.children[0].1.to_string());
@@ -218,4 +228,47 @@ fn infer_shape(index: &String, child_indices: Vec<&String>) -> Vec<(usize, usize
         .collect();
 
     index.chars().map(|c| index_map[&c]).collect()
+}
+
+pub fn deepcopy_noderef(node_ref: &NodeRef) -> NodeRef {
+    fn copy_recursive(node_ref: &NodeRef, visited: &mut HashMap<*const Node, NodeRef>) -> NodeRef {
+        let node = node_ref.lock().unwrap();
+        let ptr = &*node as *const Node;
+
+        if let Some(copy) = visited.get(&ptr) {
+            return Arc::clone(copy);
+        }
+
+        let new_node = Arc::new(Mutex::new(Node {
+            index: node.index.clone(),
+            body: node.body.clone(),
+            parents: Vec::new(),
+            children: Vec::new(),
+        }));
+
+        visited.insert(ptr, Arc::clone(&new_node));
+        drop(node);
+
+        let node = node_ref.lock().unwrap();
+        let children: Vec<_> = node
+            .children
+            .iter()
+            .map(|(child, idx)| (copy_recursive(child, visited), idx.clone()))
+            .collect();
+
+        let parents: Vec<_> = node
+            .parents
+            .iter()
+            .map(|parent| copy_recursive(parent, visited))
+            .collect();
+        drop(node);
+
+        new_node.lock().unwrap().children = children;
+        new_node.lock().unwrap().parents = parents;
+
+        new_node
+    }
+
+    let mut visited = HashMap::new();
+    copy_recursive(node_ref, &mut visited)
 }
