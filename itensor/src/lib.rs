@@ -43,10 +43,7 @@ impl Component {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Ok(format!(
-            "{:#?}",
-            RustBackend::render(&Lowerer::new().lower(&self.graph))
-        ))
+        Ok(format!("{:#?}", &self.graph))
     }
 
     #[pyo3(name = "chain")]
