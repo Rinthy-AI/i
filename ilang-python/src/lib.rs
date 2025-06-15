@@ -1,196 +1,220 @@
-use std::ffi::c_void;
+use libloading::{Library, Symbol};
+use pyo3::prelude::*;
+use pyo3::types::{PyList, PyTuple};
 
 use compiler::{
-    backend::{block::BlockBackend, rust::RustBackend, Build, Render},
-    block::{Block, Statement, Type as ILangType},
+    backend::{rust::RustBackend, Build, Render},
     graph::Graph,
     lowerer::Lowerer,
     parser::Parser,
 };
-use libffi::{
-    low::CodePtr,
-    middle::{arg, Cif, Type as CifType},
-};
-use pyo3::{
-    prelude::*,
-    types::{PyList, PyTuple},
-};
 
-fn ilang_type_to_cif_type(type_: &ILangType) -> CifType {
-    let slice = CifType::structure(vec![CifType::usize(), CifType::usize()].into_iter());
-    match type_ {
-        ILangType::Int(_) => CifType::usize(),
-        ILangType::Array(_) | ILangType::ArrayRef(_) => slice,
-    }
+#[derive(Debug)]
+#[repr(C)]
+pub struct Tensor<'a> {
+    pub data: *const f32,
+    pub shape: *const usize,
+    pub ndim: usize,
+    pub _marker: std::marker::PhantomData<&'a [f32]>,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct TensorMut<'a> {
+    pub data: *mut f32,
+    pub shape: *const usize,
+    pub ndim: usize,
+    pub _marker: std::marker::PhantomData<&'a mut [f32]>,
 }
 
 #[pyclass]
 #[derive(Debug)]
 struct Component {
-    _src: String,
     graph: Graph,
-}
-
-#[derive(Debug, Clone, FromPyObject, IntoPyObject)]
-#[pyo3(transparent)]
-struct ArrayPointer(usize);
-
-impl ArrayPointer {
-    unsafe fn as_ptr(&self) -> *const f32 {
-        self.0 as *const f32
-    }
-    unsafe fn as_mut_ptr(&self) -> *mut f32 {
-        self.0 as *mut f32
-    }
-    fn from_ptr(ptr: *const f32) -> Self {
-        ArrayPointer(ptr as usize)
-    }
-}
-
-#[pyclass]
-#[derive(Debug, FromPyObject)]
-#[repr(C)]
-struct Tensor {
-    #[pyo3(get)]
-    ptr: ArrayPointer,
-    #[pyo3(get)]
-    dims: Vec<usize>,
-}
-
-#[pymethods]
-impl Tensor {
-    #[new]
-    fn py_new(data_list: &Bound<PyList>, shape: &Bound<PyTuple>) -> PyResult<Self> {
-        let data: Vec<f32> = data_list.extract()?;
-        let ptr = ArrayPointer::from_ptr(data.as_ptr());
-        std::mem::forget(data);
-        let dims = shape.extract()?;
-        Ok(Tensor { ptr, dims })
-    }
-    fn __repr__(&self) -> String {
-        let data =
-            unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.dims.iter().product()) };
-        format!("Tensor {{ data: {:?}, shape: {:?} }}", data, self.dims)
-    }
-    fn __del__(&self) {
-        let _data = unsafe {
-            Vec::from_raw_parts(
-                self.ptr.as_mut_ptr(),
-                self.dims.iter().product(),
-                self.dims.iter().product(),
-            )
-        };
-    }
-}
-
-impl TryFrom<String> for Component {
-    type Error = PyErr;
-    fn try_from(src: String) -> Result<Self, Self::Error> {
-        // TODO better error handling here
-        let (_ast, expr_bank) = Parser::new(&src).unwrap().parse().unwrap();
-        let graph = Graph::from_expr_bank(&expr_bank);
-        Ok(Component { _src: src, graph })
-    }
 }
 
 #[pymethods]
 impl Component {
     #[new]
-    fn py_new(src: String) -> PyResult<Self> {
-        src.try_into()
+    fn new(src: String) -> PyResult<Self> {
+        let (_ast, expr_bank) = Parser::new(&src).unwrap().parse().unwrap();
+        let graph = Graph::from_expr_bank(&expr_bank);
+        Ok(Component { graph })
     }
-    fn __repr__(&self) -> String {
-        format!("{:?}", self)
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:#?}", &self.graph))
     }
-    fn as_block(&self) -> String {
-        let block = Lowerer::new().lower(&self.graph);
-        BlockBackend::render(&block)
-    }
-    #[pyo3(signature = (*args))]
-    fn realize(&self, args: &Bound<'_, PyTuple>) -> PyResult<()> {
-        let tensors: Vec<Tensor> = args.extract()?;
-        let data: Vec<&Tensor> = tensors.iter().collect();
-        let block = Lowerer::new().lower(&self.graph);
-        run_rust_impl(&block, &data)
-    }
+
     #[pyo3(name = "chain")]
     fn chain(&self, other: &Component) -> PyResult<Component> {
         Ok(Component {
-            _src: format!("i({}).chain(i({}))", self._src, other._src),
             graph: self.graph.chain(&other.graph),
         })
     }
+
     #[pyo3(name = "compose")]
     fn compose(&self, other: &Component) -> PyResult<Component> {
         Ok(Component {
-            _src: format!("i({})(i({}))", self._src, other._src),
             graph: self.graph.compose(&other.graph),
         })
     }
+
     #[pyo3(name = "__or__")]
     fn or(&self, other: &Component) -> PyResult<Component> {
         self.chain(other)
     }
+
     #[pyo3(name = "__call__")]
     fn call(&self, other: &Component) -> PyResult<Component> {
         self.compose(other)
     }
+
+    #[pyo3(signature = (*args))]
+    fn exec(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyTensor> {
+        let mut tensors: Vec<PyTensor> = args.extract()?;
+
+        // convert to backend `Tensor`s
+        let tensors = tensors
+            .iter()
+            .map(|tensor| Tensor {
+                data: tensor.data.as_ptr(),
+                shape: tensor.shape.as_ptr(),
+                ndim: tensor.shape.len(),
+                _marker: std::marker::PhantomData,
+            })
+            .collect::<Vec<_>>();
+
+        let block = Lowerer::new().lower(&self.graph);
+        let dylib_path = RustBackend::build(&RustBackend::render(&block)).unwrap();
+
+        unsafe {
+            let dylib = Library::new(&dylib_path).unwrap();
+            let rank: Symbol<extern "C" fn() -> usize> = dylib.get(b"rank").unwrap();
+
+            let fshape: Symbol<extern "C" fn(*const Tensor, usize, usize, *mut usize)> =
+                dylib.get(b"shape").unwrap();
+            let f: Symbol<unsafe extern "C" fn(*const Tensor, usize, *mut TensorMut)> =
+                dylib.get(b"f").unwrap();
+
+            let mut shape = vec![0; rank()];
+            fshape(tensors.as_ptr(), tensors.len(), rank(), shape.as_mut_ptr());
+
+            let mut data = vec![0f32; shape.iter().product()];
+            let mut out = TensorMut {
+                data: data.as_mut_ptr(),
+                shape: shape.as_ptr(),
+                ndim: shape.len(),
+                _marker: std::marker::PhantomData,
+            };
+
+            f(tensors.as_ptr(), tensors.len(), &mut out);
+
+            std::fs::remove_file(dylib_path).unwrap();
+
+            Ok(PyTensor { data, shape })
+        }
+    }
 }
 
-fn run_rust_impl(schedule: &Block, data: &[&Tensor]) -> PyResult<()> {
-    // println!("data: {:?}", data);
-    let functions = schedule
-        .statements
-        .iter()
-        .filter(|s| match s {
-            Statement::Function { .. } => true,
-            _ => false,
-        })
-        .collect::<Vec<&Statement>>();
-    if functions.is_empty() {
-        // TODO return proper error
-        panic!("no functions")
-    }
-    let exec_func = functions.last().unwrap();
-    let mut args = vec![];
-    let data_ptrs = data
-        .iter()
-        .map(|t| unsafe { std::slice::from_raw_parts(t.ptr.as_ptr(), t.dims.iter().product()) })
-        .collect::<Vec<&[f32]>>();
-    for (ptr_idx, tensor) in data.iter().enumerate() {
-        args.push(arg(&data_ptrs[ptr_idx]));
-        for dim in tensor.dims.iter() {
-            args.push(arg(dim));
+#[pyclass(name = "Tensor")]
+#[derive(Debug, FromPyObject)]
+struct PyTensor {
+    #[pyo3(get)]
+    data: Vec<f32>,
+    #[pyo3(get)]
+    shape: Vec<usize>,
+}
+
+fn infer_shape(list: &Bound<'_, PyList>) -> PyResult<Vec<usize>> {
+    let mut shape = Vec::new();
+    let mut current = list.clone();
+
+    loop {
+        shape.push(current.len());
+
+        if current.is_empty() {
+            break;
+        }
+
+        let first_item = current.get_item(0)?;
+        match first_item.downcast::<PyList>() {
+            Ok(sublist) => current = sublist.clone(),
+            Err(_) => break,
         }
     }
-    match exec_func {
-        Statement::Function {
-            ident,
-            args: params,
-            ..
-        } => {
-            let param_types = params
-                .iter()
-                .map(|a| ilang_type_to_cif_type(&a.type_))
-                .collect::<Vec<CifType>>();
-            let rust = RustBackend::render(&schedule);
-            let dylib_path = RustBackend::build(&rust).unwrap();
-            let cif = Cif::new(param_types.into_iter(), CifType::void());
-            unsafe {
-                let lib = libloading::Library::new(dylib_path).unwrap();
-                let ilang_run: libloading::Symbol<*const c_void> =
-                    lib.get(ident.as_bytes()).unwrap();
-                cif.call::<()>(CodePtr(ilang_run.cast_mut()), &args);
-            }
-            Ok(())
+
+    Ok(shape)
+}
+
+fn validate_and_flatten(
+    list: &Bound<'_, PyList>,
+    shape: &[usize],
+    dim: usize,
+    data: &mut Vec<f32>,
+) -> PyResult<()> {
+    if dim >= shape.len() {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "Array has more dimensions than expected",
+        ));
+    }
+
+    if list.len() != shape[dim] {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "Inconsistent shape: Expected {} elements at dimension {}, got {}",
+            shape[dim],
+            dim,
+            list.len()
+        )));
+    }
+
+    if dim == shape.len() - 1 {
+        for element in list.iter() {
+            let element = element.extract()?;
+            data.push(element);
         }
-        _ => unreachable!(),
+    } else {
+        for element in list.iter() {
+            let sublist = element.downcast::<PyList>()?;
+            validate_and_flatten(&sublist, shape, dim + 1, data)?;
+        }
+    }
+
+    Ok(())
+}
+
+#[pymethods]
+impl PyTensor {
+    #[new]
+    fn new(elements: &Bound<'_, PyList>) -> PyResult<Self> {
+        let shape = infer_shape(elements)?;
+        let mut data = Vec::new();
+        validate_and_flatten(elements, &shape, 0, &mut data)?;
+
+        let expected_size: usize = shape.iter().product();
+        if data.len() != expected_size {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Data size {} does not match shape {:?} (expected {})",
+                data.len(),
+                shape,
+                expected_size
+            )));
+        }
+
+        Ok(Self { data, shape })
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!(
+            "Tensor(shape={:?}, data={:?})",
+            self.shape, self.data
+        ))
     }
 }
 
 #[pymodule]
-fn ilang(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn ilang(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyTensor>()?;
     m.add_class::<Component>()?;
-    m.add_class::<Tensor>()?;
     Ok(())
 }
