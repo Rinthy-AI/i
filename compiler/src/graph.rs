@@ -22,7 +22,7 @@ pub struct Node {
     pub index: String,
     pub body: NodeBody,
     pub parents: Vec<NodeRef>,
-    children: Vec<(NodeRef, String)>, // child node and its index according to the current Node
+    children: Vec<(NodeRef, String)>,
 }
 
 impl Node {
@@ -67,52 +67,36 @@ fn get_leftmost_leaf(node_ref: &NodeRef) -> NodeRef {
 
 #[derive(Clone, Debug)]
 pub struct Graph {
-    nodes: Vec<NodeRef>,
+    roots: Vec<NodeRef>,
 }
 
 impl Graph {
     pub fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self { roots: Vec::new() }
     }
 
     pub fn deepcopy(&self) -> Self {
         Self {
-            nodes: self
-                .nodes
-                .iter()
-                .map(|node| deepcopy_noderef(node))
-                .collect(),
+            roots: self.roots.iter().map(|r| deepcopy_noderef(r)).collect(),
         }
     }
 
     pub fn roots(&self) -> Vec<NodeRef> {
-        let mut is_child = std::collections::HashSet::new();
-        for node in &self.nodes {
-            let node = node.lock().unwrap();
-            for (child, _) in &node.children {
-                is_child.insert(Arc::as_ptr(child));
-            }
-        }
-
-        self.nodes
-            .iter()
-            .filter(|node| !is_child.contains(&Arc::as_ptr(node)))
-            .cloned()
-            .collect()
+        self.roots.iter().cloned().collect()
     }
 
     pub fn root(&self) -> NodeRef {
-        Arc::clone(self.nodes.last().expect("Graph is empty"))
+        Arc::clone(self.roots.last().expect("Graph has no roots"))
     }
 
     pub fn from_expr_bank(expr_bank: &ExprBank) -> Graph {
         let mut graph = Self::new();
-        graph.from_expr_ref_with_expr_bank(&ExprRef(expr_bank.0.len() - 1), expr_bank, vec![]);
+        let root =
+            graph.from_expr_ref_with_expr_bank(&ExprRef(expr_bank.0.len() - 1), expr_bank, vec![]);
+        graph.roots.push(root);
         graph
     }
 
-    /// Return the `Graph` formed by chaining `self` into `other`, i.e., `f.chain(g) = g(f)`
-    /// Equivalent to the commutation of `compose`: `f.chain(g) = g.compose(f)`
     pub fn chain(&self, other: &Self) -> Self {
         let right = other.deepcopy();
         let left = self.deepcopy();
@@ -123,8 +107,6 @@ impl Graph {
         right
     }
 
-    /// Return the `Graph` formed by composing `self` with `other`, i.e., `f.compose(g) = f(g)`
-    /// Equivalent to the commutation of `chain`: `f.compose(g) = g.chain(f)`
     pub fn compose(&self, other: &Self) -> Self {
         other.chain(self)
     }
@@ -150,7 +132,6 @@ impl Graph {
                 .push((Arc::clone(&node), index.clone()));
         }
 
-        self.nodes.push(Arc::clone(&node));
         node
     }
 
@@ -204,7 +185,7 @@ impl Graph {
                     ScalarOp::UnaryOp(UnaryOp::Recip(_)) => '/',
                     ScalarOp::UnaryOp(UnaryOp::Exp(_)) => '^',
                     ScalarOp::UnaryOp(UnaryOp::Log(_)) => '$',
-                    ScalarOp::NoOp(_) => ' ', // never used
+                    ScalarOp::NoOp(_) => ' ',
                 };
 
                 let body = NodeBody::Interior {
@@ -222,13 +203,9 @@ impl Graph {
                     let mut pn = parent.lock().unwrap();
                     let (orphan, tag) = pn.children[0].clone();
                     pn.children[0] = (Arc::clone(&left), tag);
-                    drop(pn); // release lock
-
-                    // set back-edge
+                    drop(pn);
                     left.lock().unwrap().parents.push(Arc::clone(&parent));
-
-                    // drop the now-orphaned node from the graph
-                    self.nodes.retain(|n| !Arc::ptr_eq(n, &orphan));
+                    drop(orphan);
                 }
 
                 right
@@ -238,7 +215,6 @@ impl Graph {
 }
 
 fn infer_shape(index: &String, child_indices: Vec<&String>) -> Vec<(usize, usize)> {
-    // maps char indices to their (input index, char index) pairs
     let index_map: HashMap<char, (usize, usize)> = child_indices
         .iter()
         .enumerate()
