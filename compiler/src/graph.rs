@@ -217,11 +217,20 @@ impl Graph {
             Expr::Combinator(Combinator::Chain(left_ref, right_ref)) => {
                 let left = self.from_expr_ref_with_expr_bank(left_ref, expr_bank, parents.clone());
                 let right = self.from_expr_ref_with_expr_bank(right_ref, expr_bank, parents);
+
                 if let Some(parent) = get_parent_of_leftmost_leaf(&right) {
-                    let mut parent_node = parent.lock().unwrap();
-                    parent_node.children[0] =
-                        (Arc::clone(&left), parent_node.children[0].1.to_string());
+                    let mut pn = parent.lock().unwrap();
+                    let (orphan, tag) = pn.children[0].clone();
+                    pn.children[0] = (Arc::clone(&left), tag);
+                    drop(pn); // release lock
+
+                    // set back-edge
+                    left.lock().unwrap().parents.push(Arc::clone(&parent));
+
+                    // drop the now-orphaned node from the graph
+                    self.nodes.retain(|n| !Arc::ptr_eq(n, &orphan));
                 }
+
                 right
             }
         }
