@@ -85,6 +85,22 @@ impl Graph {
         }
     }
 
+    pub fn roots(&self) -> Vec<NodeRef> {
+        let mut is_child = std::collections::HashSet::new();
+        for node in &self.nodes {
+            let node = node.lock().unwrap();
+            for (child, _) in &node.children {
+                is_child.insert(Arc::as_ptr(child));
+            }
+        }
+
+        self.nodes
+            .iter()
+            .filter(|node| !is_child.contains(&Arc::as_ptr(node)))
+            .cloned()
+            .collect()
+    }
+
     pub fn root(&self) -> NodeRef {
         Arc::clone(self.nodes.last().expect("Graph is empty"))
     }
