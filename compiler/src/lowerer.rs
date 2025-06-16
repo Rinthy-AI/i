@@ -40,7 +40,7 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Program {
-        let lowered = self.lower_node(&*graph.root().lock().unwrap(), HashSet::new(), true);
+        let lowered = self.lower_node(&graph.root().lock().unwrap(), HashSet::new(), true);
         Program {
             rank: Statement::Function {
                 ident: "rank".to_string(),
