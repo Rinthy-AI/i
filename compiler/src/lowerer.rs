@@ -40,6 +40,12 @@ impl Lowerer {
     }
 
     pub fn lower(&mut self, graph: &Graph) -> Program {
+        assert_eq!(
+            graph.roots().len(),
+            1,
+            "Attempted to lower `Graph` of {} roots.",
+            graph.roots().len()
+        );
         let lowered = self.lower_node(&graph.root().lock().unwrap(), HashSet::new(), true);
         Program {
             rank: Statement::Function {
