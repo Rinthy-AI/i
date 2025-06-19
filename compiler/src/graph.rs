@@ -98,12 +98,9 @@ impl Graph {
     }
 
     pub fn chain(&self, other: &Self) -> Self {
-        let right = other.deepcopy();
         let left = self.deepcopy();
-        if let Some(parent) = get_parent_of_leftmost_leaf(&right.root()) {
-            let mut parent_node = parent.lock().unwrap();
-            parent_node.children[0] = (left.root().clone(), parent_node.children[0].1.to_string());
-        }
+        let right = other.deepcopy();
+        *right.leaves()[0].lock().unwrap() = left.root().lock().unwrap().clone();
         right
     }
 
