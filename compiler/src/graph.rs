@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::ast::{
@@ -211,6 +211,34 @@ impl Graph {
                 right
             }
         }
+    }
+
+    fn leaves(&self) -> Vec<NodeRef> {
+        use std::collections::HashSet;
+        let mut out = Vec::new();
+        let mut seen = HashSet::new();
+        let mut stack = self.roots.clone();
+
+        while let Some(n) = stack.pop() {
+            let ptr = {
+                let node = n.lock().unwrap();
+                &*node as *const _ as usize
+            };
+            if !seen.insert(ptr) {
+                continue;
+            }
+            let cs = {
+                let node = n.lock().unwrap();
+                if node.children.is_empty() {
+                    out.push(n.clone());
+                    Vec::new()
+                } else {
+                    node.children.iter().rev().map(|(c, _)| c.clone()).collect()
+                }
+            };
+            stack.extend(cs);
+        }
+        out
     }
 }
 
