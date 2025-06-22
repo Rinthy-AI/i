@@ -21,7 +21,7 @@ pub enum NodeBody {
 pub struct Node {
     pub index: String,
     pub body: NodeBody,
-    pub parents: Vec<NodeRef>,
+    parents: Vec<NodeRef>,
     children: Vec<(NodeRef, String)>,
 }
 
@@ -98,14 +98,71 @@ impl Graph {
     }
 
     pub fn chain(&self, other: &Self) -> Self {
-        let left = self.deepcopy();
-        let right = other.deepcopy();
-        *right.leaves()[0].lock().unwrap() = left.root().lock().unwrap().clone();
-        right
+        other.compose(self)
     }
 
     pub fn compose(&self, other: &Self) -> Self {
-        other.chain(self)
+        let mut left = self.deepcopy();
+        let mut right = other.deepcopy();
+
+        let mut r_iter = right.roots.into_iter();
+        let map: HashMap<usize, NodeRef> = left
+            .leaves()
+            .into_iter()
+            .filter_map(|leaf| {
+                r_iter
+                    .next()
+                    .map(|root| (Arc::as_ptr(&leaf) as usize, root))
+            })
+            .collect();
+
+        let mut seen = HashSet::new();
+        let mut stack = left.roots.clone();
+        while let Some(node) = stack.pop() {
+            if !seen.insert(Arc::as_ptr(&node) as usize) {
+                continue;
+            }
+            let mut n = node.lock().unwrap();
+            for (child, _) in &mut n.children {
+                if let Some(repl) = map.get(&(Arc::as_ptr(child) as usize)) {
+                    *child = repl.clone();
+                }
+            }
+            stack.extend(n.children.iter().map(|(c, _)| c.clone()));
+        }
+
+        left.roots.extend(r_iter);
+        left
+    }
+
+    pub fn fanout(&self, other: &Self) -> Self {
+        let mut left = self.deepcopy();
+        let mut right = other.deepcopy();
+
+        let map: HashMap<usize, NodeRef> = right
+            .leaves()
+            .into_iter()
+            .zip(left.leaves())
+            .map(|(r, l)| (Arc::as_ptr(&r) as usize, l))
+            .collect();
+
+        let mut seen = HashSet::new();
+        let mut stack = right.roots.clone();
+        while let Some(node) = stack.pop() {
+            if !seen.insert(Arc::as_ptr(&node) as usize) {
+                continue;
+            }
+            let mut n = node.lock().unwrap();
+            for (child, _) in &mut n.children {
+                if let Some(repl) = map.get(&(Arc::as_ptr(child) as usize)) {
+                    *child = repl.clone();
+                }
+            }
+            stack.extend(n.children.iter().map(|(c, _)| c.clone()));
+        }
+
+        left.roots.extend(right.roots);
+        left
     }
 
     fn add_node(
