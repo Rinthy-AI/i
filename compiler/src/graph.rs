@@ -76,9 +76,49 @@ impl Graph {
     }
 
     pub fn deepcopy(&self) -> Self {
-        Self {
-            roots: self.roots.iter().map(|r| deepcopy_noderef(r)).collect(),
+        fn copy_recursive(
+            node_ref: &NodeRef,
+            visited: &mut HashMap<*const Node, NodeRef>,
+        ) -> NodeRef {
+            let node = node_ref.lock().unwrap();
+            let ptr = &*node as *const Node;
+            if let Some(n) = visited.get(&ptr) {
+                return Arc::clone(n);
+            }
+
+            let new_node = Arc::new(Mutex::new(Node {
+                index: node.index.clone(),
+                body: node.body.clone(),
+                parents: Vec::new(),
+                children: Vec::new(),
+            }));
+            visited.insert(ptr, Arc::clone(&new_node));
+
+            let children: Vec<_> = node
+                .children
+                .iter()
+                .map(|(c, idx)| (copy_recursive(c, visited), idx.clone()))
+                .collect();
+            let parents: Vec<_> = node
+                .parents
+                .iter()
+                .map(|p| copy_recursive(p, visited))
+                .collect();
+
+            let mut new_lock = new_node.lock().unwrap();
+            new_lock.children = children;
+            new_lock.parents = parents;
+            drop(new_lock);
+
+            new_node
         }
+        let mut visited = HashMap::new();
+        let roots = self
+            .roots
+            .iter()
+            .map(|r| copy_recursive(r, &mut visited))
+            .collect();
+        Self { roots }
     }
 
     pub fn roots(&self) -> Vec<NodeRef> {
@@ -311,47 +351,4 @@ fn infer_shape(index: &String, child_indices: Vec<&String>) -> Vec<(usize, usize
         .collect();
 
     index.chars().map(|c| index_map[&c]).collect()
-}
-
-pub fn deepcopy_noderef(node_ref: &NodeRef) -> NodeRef {
-    fn copy_recursive(node_ref: &NodeRef, visited: &mut HashMap<*const Node, NodeRef>) -> NodeRef {
-        let node = node_ref.lock().unwrap();
-        let ptr = &*node as *const Node;
-
-        if let Some(copy) = visited.get(&ptr) {
-            return Arc::clone(copy);
-        }
-
-        let new_node = Arc::new(Mutex::new(Node {
-            index: node.index.clone(),
-            body: node.body.clone(),
-            parents: Vec::new(),
-            children: Vec::new(),
-        }));
-
-        visited.insert(ptr, Arc::clone(&new_node));
-        drop(node);
-
-        let node = node_ref.lock().unwrap();
-        let children: Vec<_> = node
-            .children
-            .iter()
-            .map(|(child, idx)| (copy_recursive(child, visited), idx.clone()))
-            .collect();
-
-        let parents: Vec<_> = node
-            .parents
-            .iter()
-            .map(|parent| copy_recursive(parent, visited))
-            .collect();
-        drop(node);
-
-        new_node.lock().unwrap().children = children;
-        new_node.lock().unwrap().parents = parents;
-
-        new_node
-    }
-
-    let mut visited = HashMap::new();
-    copy_recursive(node_ref, &mut visited)
 }
