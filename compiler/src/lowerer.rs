@@ -12,7 +12,7 @@ pub struct Lowerer {
     split_factor_count: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Lowered {
     def_block: Block,
     alloc_block: Block,
@@ -46,7 +46,16 @@ impl Lowerer {
             "Attempted to lower `Graph` of {} roots.",
             graph.roots().len()
         );
-        let lowered = self.lower_node(&graph.root().lock().unwrap(), HashSet::new(), true);
+
+        let mut memo = HashMap::<usize, Lowered>::new();
+        let lowered = self.lower_node(
+            &graph.root().lock().unwrap(),
+            HashSet::new(),
+            true,
+            &mut memo,
+        );
+
+        //let lowered = self.lower_node(&graph.root().lock().unwrap(), HashSet::new(), true);
         Program {
             rank: Statement::Function {
                 ident: "rank".to_string(),
@@ -99,8 +108,23 @@ impl Lowerer {
         node: &Node,
         pruned_loops: HashSet<(char, usize)>,
         root: bool,
+        memo: &mut HashMap<usize, Lowered>,
     ) -> Lowered {
-        match &node.body {
+        let id = node as *const _ as usize;
+
+        if let Some(cached) = memo.get(&id) {
+            return Lowered {
+                def_block: Block {
+                    statements: Vec::new(),
+                },
+                exec_block: Block {
+                    statements: Vec::new(),
+                },
+                ..cached.clone()
+            };
+        }
+
+        let lowered = match &node.body {
             NodeBody::Leaf => self.lower_leaf_node(&node.index),
             NodeBody::Interior {
                 op,
@@ -114,8 +138,13 @@ impl Lowerer {
                 &schedule,
                 pruned_loops,
                 root,
+                memo,
             ),
-        }
+        };
+
+        memo.insert(id, lowered.clone());
+
+        lowered
     }
 
     /// Return function def block, alloc block, exec block, (bound, iterator) ident map, store ident
@@ -173,6 +202,7 @@ impl Lowerer {
         schedule: &Schedule,
         pruned_loops: HashSet<(char, usize)>,
         root: bool,
+        memo: &mut HashMap<usize, Lowered>,
     ) -> Lowered {
         let mut all_char_indices: Vec<char> = children
             .iter()
@@ -260,7 +290,7 @@ impl Lowerer {
                     loop_idents: child_loop_idents,
                     store_ident: child_store_ident,
                     shape: child_shape,
-                } = self.lower_node(&child, pruned_loops, false);
+                } = self.lower_node(&child, pruned_loops, false, memo);
 
                 let child_loop_idents: HashMap<char, (String, String)> = child_loop_idents
                     .into_iter()
