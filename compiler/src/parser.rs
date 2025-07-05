@@ -263,7 +263,9 @@ impl<'a> Parser<'a> {
         let left = self.parse_symbol()?;
         match self.tokenizer.next() {
             Token::Operator('*') => Ok(BinaryOp::Mul(left, self.parse_symbol()?)),
+            Token::Operator('/') => Ok(BinaryOp::Div(left, self.parse_symbol()?)),
             Token::Operator('+') => Ok(BinaryOp::Add(left, self.parse_symbol()?)),
+            Token::Operator('-') => Ok(BinaryOp::Sub(left, self.parse_symbol()?)),
             Token::Operator('>') => Ok(BinaryOp::Max(left, self.parse_symbol()?)),
             _ => Err(ParseError::InvalidToken {
                 expected: "Operator".to_string(),

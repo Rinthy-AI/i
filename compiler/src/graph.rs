@@ -243,7 +243,9 @@ impl Graph {
             Expr::Index(IndexExpr { op, out, schedule }) => {
                 let children = match op {
                     ScalarOp::BinaryOp(BinaryOp::Add(in0, in1))
+                    | ScalarOp::BinaryOp(BinaryOp::Sub(in0, in1))
                     | ScalarOp::BinaryOp(BinaryOp::Mul(in0, in1))
+                    | ScalarOp::BinaryOp(BinaryOp::Div(in0, in1))
                     | ScalarOp::BinaryOp(BinaryOp::Max(in0, in1)) => vec![
                         (
                             self.add_node(in0.0.clone(), NodeBody::Leaf, vec![], vec![]),
@@ -275,8 +277,10 @@ impl Graph {
                     | ScalarOp::BinaryOp(BinaryOp::Mul(_, _)) => '*',
                     ScalarOp::UnaryOp(UnaryOp::Relu(_))
                     | ScalarOp::BinaryOp(BinaryOp::Max(_, _)) => '>',
-                    ScalarOp::UnaryOp(UnaryOp::Neg(_)) => '-',
-                    ScalarOp::UnaryOp(UnaryOp::Recip(_)) => '/',
+                    ScalarOp::UnaryOp(UnaryOp::Neg(_))
+                    | ScalarOp::BinaryOp(BinaryOp::Sub(_, _)) => '-',
+                    ScalarOp::UnaryOp(UnaryOp::Recip(_))
+                    | ScalarOp::BinaryOp(BinaryOp::Div(_, _)) => '/',
                     ScalarOp::UnaryOp(UnaryOp::Exp(_)) => '^',
                     ScalarOp::UnaryOp(UnaryOp::Log(_)) => '$',
                     ScalarOp::NoOp(_) => ' ',

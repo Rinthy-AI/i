@@ -51,7 +51,9 @@ pub enum ScalarOp {
 #[derive(Clone, Debug)]
 pub enum BinaryOp {
     Mul(Symbol, Symbol),
+    Div(Symbol, Symbol),
     Add(Symbol, Symbol),
+    Sub(Symbol, Symbol),
     Max(Symbol, Symbol),
 }
 
