@@ -127,7 +127,7 @@ impl RustBackend {
             },
             '^' => {
                 assert!(inputs.len() == 1, "Expected 1 input to op [^].");
-                format!("({} as f64).exp() as f32 ", Self::render_expr(&inputs[0]))
+                format!("{}.exp()", Self::render_expr(&inputs[0]))
             }
             '$' => {
                 assert!(inputs.len() == 1, "Expected 1 input to op [$].");
