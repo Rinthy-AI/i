@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 
 use crate::ast::{
@@ -337,6 +338,34 @@ impl Graph {
             stack.extend(cs);
         }
         out
+    }
+
+    pub fn to_dot(&self) -> String {
+        let mut out = String::from("digraph G {\n");
+        let mut visited = HashSet::new();
+        for root in &self.roots {
+            Self::dot_node(&root.lock().unwrap(), &mut visited, &mut out);
+        }
+        out.push('}');
+        out
+    }
+
+    fn dot_node(node: &Node, visited: &mut HashSet<usize>, out: &mut String) {
+        let id = node as *const _ as usize;
+        if !visited.insert(id) {
+            return;
+        }
+        let label = match &node.body {
+            NodeBody::Leaf => format!("{}", node.index),
+            NodeBody::Interior { op, .. } => format!("{} {}", node.index, op),
+        };
+        writeln!(out, "\t{} [label=\"{}\"];", id, label).unwrap();
+        for (child, edge_label) in &node.children {
+            let child_node = child.lock().unwrap();
+            let child_id = &*child_node as *const _ as usize;
+            writeln!(out, "\t{} -> {} [label=\"{}\"];", id, child_id, edge_label).unwrap();
+            Self::dot_node(&child_node, visited, out);
+        }
     }
 }
 
