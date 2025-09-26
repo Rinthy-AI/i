@@ -78,6 +78,6 @@ pub struct Block {
 pub struct Program {
     pub rank: Statement,  // Should be `Statement::Function`
     pub shape: Statement, // Should be `Statement::Function`
-    pub library: Block,   // Should consistent only of `Statement::Function`s
+    pub library: Block,   // Should consist only of `Statement::Function`s
     pub exec: Statement,  // Should be `Statement::Function`
 }
